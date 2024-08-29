@@ -10,6 +10,7 @@ source("temp/token.R")
 # Load functions
 source("R/fetch_agol_data.R")
 source("R/clean_bear_data.R")
+source("R/push_agol_data.R")
 
 # Fetch bear data
 
@@ -27,7 +28,6 @@ p <- fetch_bears(token = token,
 
 # Data backups
 # Store to `temp` folder as a data backup
-
 systime <- format(Sys.time(), "%Y%m%d-%H%M%S")
 
 # Current
@@ -43,9 +43,9 @@ sf::st_write(p, paste0("temp/dens_potential_", systime, ".shp"))
 
 rm(systime)
 
-# Keep original column names stored
-# Not sure this is 100% accurate for later API attributes but will cross that
-# bridge when we get to it
+# Keep original column names stored 
+# Later will use these original column names to push data changes to 
+# online layer
 dens_cols <- names(dens)
 f_cols <- names(f)
 p_cols <- names(p)
