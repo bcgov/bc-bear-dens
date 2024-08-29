@@ -1,6 +1,6 @@
 # Functions to connect to ArcGIS Online Bear Dens project
 
-fetch_bears <- function(token, layer = "field visits") {
+fetch_bears <- function(layer = "field visits", token) {
   stopifnot("`layer` must be one of 'current', 'field visits', or 'potential'." = layer %in% c("current", "field visits", "potential"))
   # there is likely a better way of doing this, but for now - 
   feature_name <- dplyr::case_when(
