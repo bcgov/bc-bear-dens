@@ -14,7 +14,7 @@ clean_bears <- function(df) {
                             TRUE ~ "unknown")
   
   # Drop geometry for field visits
-  if (layer %in% c("field visits", "potential")) df <- sf::st_drop_geometry(df)
+  if (layer == "field visits") df <- sf::st_drop_geometry(df)
   
   # Clean up excess whitespace, abbreviations, NA, etc.
   df <- df |> dplyr::mutate_if(is.character, stringr::str_squish)
