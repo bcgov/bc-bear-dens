@@ -48,16 +48,26 @@ push_bears <- function(json, layer, token) {
     layer == "current" ~ 1,
     layer == "potential" ~ 0
   )
-  # Base URl
-  url <- httr::parse_url("https://services6.arcgis.com/ubm4tcTYICKBpist/arcgis/rest/services")
-  # Build query url
-  url$path <- paste(url$path, feature_name, "FeatureServer", lyr_id, "updateFeatures", sep = "/")
-  url$query <- list(f = "json", 
-                    features = json, # update
-                    token = token)
-  request <- httr::build_url(url) # e.g. https://services6.arcgis.com/ubm4tcTYICKBpist/arcgis/rest/services/Bear_Dens_Updated_23/FeatureServer/6/query?where1=1?f=pjson&token=<token>
+  # Headers
+  headers = c('Content-Type' = 'application/x-www-form-urlencoded')
+  # Base URL
+  url <- paste("https://services6.arcgis.com/ubm4tcTYICKBpist/arcgis/rest/services", feature_name, "FeatureServer", lyr_id, "updateFeatures", sep = "/")
+  # Build body
+  body = list('f' = 'json',
+              'features' = json,
+              'token' = token)
+  # Send request
+  # e.g. https://services6.arcgis.com/ubm4tcTYICKBpist/arcgis/rest/services/Bear_Dens_Updated_23/FeatureServer/6/query?where1=1?f=pjson&token=<token>
+  request <- httr::VERB("POST", 
+                        url = url, 
+                        body = body, 
+                        httr::add_headers(headers), 
+                        encode = 'form')
   # Push data & return HTTPS result
-  result <- httr::POST(request)
-  out <- httr::content(result)
+  out <- jsonlite::fromJSON(httr::content(request, 'text'))
   return(out)
 }
+
+
+
+
