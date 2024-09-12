@@ -114,6 +114,7 @@ clipr::write_clip(to_esri_json(p_update))
 push_bears(json = to_esri_json(p_update),
            layer = "potential",
            token = token)
+rm(p_update)
 
 # Now we do the dens layer....
 # Again, drop the geometry - don't need to mass edit that. 
@@ -124,6 +125,7 @@ clipr::write_clip(to_esri_json(dens_update)) # 232 KB
 push_bears(json = to_esri_json(dens_update),
            layer = "current",
            token = token)
+rm(dens_update)
 
 
 # Field visits layer
@@ -137,3 +139,4 @@ clipr::write_clip(to_esri_json(f_update)) # 905 KB
 push_bears(json = to_esri_json(f_update),
            layer = "field visits",
            token = token)
+rm(f_update)
