@@ -94,12 +94,14 @@ create_fvl <- function(den_year, vri, depletions) {
 st_proportion_forested <- function(feature, fvl, m = 60) {
   stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
   stopifnot("`feature` must be a sf class POINT geometry." = sf::st_geometry_type(feature) %in% 'POINT')
-  stopifnot("`fvl` must be a sf class geometry." = inherits(feature, "sf"))
-  stopifnot("`fvl` must be a sf class MULTIPOLYGON geometry." = any(sf::st_geometry_type(fvl) %in% c('MULTIPOLYGON')))
+  stopifnot("`fvl` must be a sf class geometry." = inherits(fvl, "sf"))
+  stopifnot("`fvl` must be a sf class MULTIPOLYGON or POLYGON geometry." = any(sf::st_geometry_type(fvl) %in% c('MULTIPOLYGON', 'POLYGON')))
   stopifnot("`feature` must be in the same CRS as `fvl`." = sf::st_crs(feature) == sf::st_crs(fvl))
   
+  stopifnot("At this time this function only supports evaluating proportion forested for one feature at a time." = nrow(feature) == 1)
+  
   circle <- sf::st_buffer(feature, dist = m)
-  circle <- sf::st_intersection(circle, fvl)
+  circle <- suppressWarnings(sf::st_intersection(circle, fvl))
   
   forested_m2 <- sum(sf::st_area(circle[circle$forested == "Forested",]))
   total_m2 <- sum(sf::st_area(circle))
@@ -113,6 +115,7 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
 #' Distance from point feature to nearest road
 #'
 #' @param feature Point feature (e.g., den)
+#' @param roads Linestring feature containing roads
 #' @param date_col (optional) Column name in `feature` that contains a date to use as the reference year for roads subsetting
 #' @param filter_by_date (boolean) Should the function filter roads by construction date when calculating distance to feature?
 #'
@@ -120,7 +123,7 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
 #' @export
 #'
 #' @examples
-st_distance_nearest_road <- function(feature, date_col = "date_inspected", filter_by_date = TRUE) {
+st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected", filter_by_date = TRUE) {
   stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
   stopifnot("`feature` must be a sf class POINT geometry." = sf::st_geometry_type(feature) %in% 'POINT')
   
@@ -129,7 +132,7 @@ st_distance_nearest_road <- function(feature, date_col = "date_inspected", filte
     roads <- roads[which((roads$award_date <= feature[[date_col]] | is.na(roads$award_date)) & (roads$retirement_date >= feature[[date_col]] | is.na(roads$retirement_date) | roads$life_cycle_status_code == 'ACTIVE')),]
   }
   
-  out <- nngeo::st_nn(feature, roads, returnDist = T, progress = F)
+  out <- suppressMessages(nngeo::st_nn(feature, roads, returnDist = T, progress = F))
   
   if (filter_by_date) {
     out <- out$dist[[1]][1]
@@ -140,3 +143,89 @@ st_distance_nearest_road <- function(feature, date_col = "date_inspected", filte
   return(out)
 }
 
+
+#' Calculate perfect forest cover of each age class around a feature
+#' 
+#' This function requires both the VRI layer and the depletions layer
+#' as inputs to accurately calculate age class forest cover around a 
+#' den for a given year.
+#'
+#' @param feature Point feature (e.g., den)
+#' @param feature_date_col Date column in the feature layer
+#' @param vri VRI polygon `sf` object
+#' @param vri_year_col VRI reference date column (i.e., year of the dataset)
+#' @param vri_age_col Column name containing forest age (typically, 'proj_age_1' if column names cleaned up)
+#' @param depletions Depletions polygon `sf` object
+#' @param depletions_year_col Column that contains polygon depletion year
+#' @param buffer Buffer size around point feature, in meters (default 1500 m)
+#'
+#' @return
+#' @export
+prct_age_class_buffer <- function(feature, feature_date_col = "date_inspected",
+                                  vri, vri_year_col = "projected_date", vri_age_col = "proj_age_1",
+                                  depletions, depletions_year_col = "depletion_year",
+                                  buffer = 1500) {
+  # Data health checks
+  stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
+  stopifnot("`feature` must be a sf class POINT geometry." = sf::st_geometry_type(feature) %in% 'POINT')
+  stopifnot("`vri` must be a sf class geometry." = inherits(vri, "sf"))
+  stopifnot("`vri` must be a sf class MULTIPOLYGON or POLYGON geometry." = any(sf::st_geometry_type(vri) %in% c('MULTIPOLYGON', 'POLYGON')))
+  stopifnot("`depletions` must be a sf class geometry." = inherits(depletions, "sf"))
+  stopifnot("`depletions` must be a sf class MULTIPOLYGON or POLYGON geometry." = any(sf::st_geometry_type(depletions) %in% c('MULTIPOLYGON', 'POLYGON')))
+  stopifnot("Your VRI layer and depletions layer are a different CRS." = sf::st_crs(vri) == sf::st_crs(depletions))
+  
+  # Extract feature year, vri year
+  f1_year <- unique(lubridate::year(feature[[feature_date_col]]))
+  vri_year <- unique(lubridate::year(vri[[vri_year_col]]))
+  
+  # Ensure name of the geometry column is the same for all features
+  sf::st_geometry(feature) <- "geom"
+  sf::st_geometry(vri) <- "geom"
+  sf::st_geometry(depletions) <- "geom"
+  
+  # Buffer point feature
+  f1 <- sf::st_buffer(feature, buffer)
+  # Drop any non-geometry cols, as they may cause errors down the line
+  f1 <- sf::st_geometry(f1)
+  
+  # Intersect f1 with VRI
+  f1_vri <- suppressWarnings(sf::st_intersection(vri, f1))
+  f1_vri$age <- f1_vri[[vri_age_col]] - (vri_year - f1_year) # subtract the age gap btwn vri year and den year - that's how many years older the VRI dataset is than the den visit
+  f1_vri <- f1_vri[which(f1_vri$age > 0),]
+  # Intersect f1 with depletions
+  f1_deps <- suppressWarnings(sf::st_intersection(depletions, f1))
+  f1_deps$age <- f1_year - f1_deps[[depletions_year_col]]
+  f1_deps <- f1_deps[which(f1_deps$age > 0),]
+  # Combine the two
+  # Very important to st_combine the second feature first, otherwise you
+  # get bizarre results. https://github.com/r-spatial/sf/issues/770
+  f1_1 <- suppressWarnings(sf::st_difference(f1_vri, sf::st_make_valid(sf::st_combine(f1_deps)))) # cut out deps first
+  f1_2 <- suppressWarnings(sf::st_intersection(f1_deps, sf::st_make_valid(sf::st_combine(f1_vri))))
+  f1_final <- dplyr::bind_rows(f1_1, f1_2)
+  # Categorize into age class
+  f1_final <- f1_final |> 
+    dplyr::mutate(age_class = dplyr::case_when(
+      age < 21 ~ 1,
+      age >= 21 & age < 41 ~ 2,
+      age >= 41 & age < 61 ~ 3,
+      age >= 61 & age < 81 ~ 4,
+      age >= 81 & age < 101 ~ 5,
+      age >= 101 & age < 121 ~ 6,
+      age >= 121 & age < 141 ~ 7,
+      age >= 141 & age < 251 ~ 8,
+      age >= 251 ~ 9
+    ))
+  # Calculate area of each age class
+  f1_final$area <- sf::st_area(f1_final)
+  # Add dummy rows of 0 area so each age class shows up in the final
+  # total
+  dummy <- data.frame(age_class = 1:9, area = 0)
+  dummy$area <- units::set_units(dummy$area, "m2")
+  f1_final <- dplyr::bind_rows(f1_final, dummy)
+  # Calculate area by age class
+  out <- aggregate(area ~ age_class, f1_final, FUN = "sum")
+  out$prct_forest_area <- units::drop_units(out$area / sum(out$area)) 
+  out$prct_total_area <- units::drop_units(out$area / sum(sf::st_area(f1)))
+  return(out)
+  
+}
