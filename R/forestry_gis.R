@@ -11,7 +11,6 @@
 #'
 #' @param den_year Year that the den was visited, i.e., reference year to use for forestry data and forest age
 #' @param vri sf object containing VRI data
-#' @param vri_year Reference year of the VRI data (default assumption of the 2023 dataset)
 #' @param depletions sf object containing depletions data
 #'
 #' @return An object of class `sf` containig two polygon areas: forested and non-forested
