@@ -147,6 +147,59 @@ d |>
 
 rm(d, d_r, roads)
 
+
+#### ROAD DENSITY BY YEAR ####
+
 # If you wanted to subset it by year, follow similar methodology
 # as distance to nearest road
 
+# > Re-load Roads ----
+
+trans_roads <- read_lrg_wkt("GIS/HG_VI_roads.csv")
+forest_roads <- read_lrg_wkt("GIS/HG_VI_forestry_sections.csv")
+
+trans_roads <- janitor::clean_names(trans_roads)
+forest_roads <- janitor::clean_names(forest_roads)
+
+roads <- dplyr::bind_rows(trans_roads, forest_roads)
+rm(trans_roads, forest_roads)
+
+# Remove ferry routes
+roads <- roads[which(roads$fcode != "AQ10800000"),]
+
+# Buffer up!
+# Highways vs. other roads will get a different amount of buffering.
+roads$hwy <- roads$fcode %in% hwy
+roads$buffer <- ifelse(roads$hwy, 7.5, 5)
+
+# Start 10:44- 11:00 am
+densities <- lapply(1:nrow(f_full), function(x){
+  tryCatch({
+    f_x <- f_full[x,]
+    message("Calculating road density for ", f_x$sample_id, " (", round((x / nrow(f_full))*100, 2), "% done)")
+    out <- road_density_buffer(feature = f_x, 
+                               roads = roads,
+                               return_road_area = TRUE)
+    #out <- data.frame(sample_id = f_x$sample_id, road_density = out)
+    out <- as.data.frame(out)
+    out$sample_id <- f_x$sample_id
+    out <- out[,c(4,1:3)] # re-order cols
+    return(out)
+    }, error = function(e) {
+      message("Error with ", f_full[["sample_id"]][x])
+    })
+  })
+beepr::beep()
+Sys.time()
+
+densities <- dplyr::bind_rows(densities)
+
+densities <- densities[order(densities$sample_id),]
+
+# Reorder cols to match the other densities csv
+names(densities)[4] <- "radius_area"
+densities <- densities[,c("sample_id", "road_area", "radius_area", "road_density_m2")]
+
+write.csv(densities, "temp/road_density_yearly_20240918.csv",
+          na = "",
+          row.names = F)
