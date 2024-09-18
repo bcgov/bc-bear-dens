@@ -121,8 +121,6 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
 #'
 #' @return
 #' @export
-#'
-#' @examples
 st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected", filter_by_date = TRUE) {
   stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
   stopifnot("`feature` must be a sf class POINT geometry." = all(sf::st_geometry_type(feature) %in% 'POINT'))
@@ -147,27 +145,26 @@ st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected"
 }
 
 
-#' Calculate perfect forest cover of each age class around a feature
+#' Calculate percent forest cover of each age class around a feature
 #' 
 #' This function requires both the VRI layer and the depletions layer
 #' as inputs to accurately calculate age class forest cover around a 
 #' den for a given year.
 #'
 #' @param feature Point feature (e.g., den)
+#' @param buffer Buffer size around point feature, in meters (default 1500 m)
 #' @param feature_date_col Date column in the feature layer
 #' @param vri VRI polygon `sf` object
 #' @param vri_year_col VRI reference date column (i.e., year of the dataset)
 #' @param vri_age_col Column name containing forest age (typically, 'proj_age_1' if column names cleaned up)
 #' @param depletions Depletions polygon `sf` object
 #' @param depletions_year_col Column that contains polygon depletion year
-#' @param buffer Buffer size around point feature, in meters (default 1500 m)
 #'
 #' @return
 #' @export
-prct_age_class_buffer <- function(feature, feature_date_col = "date_inspected",
+prct_age_class_buffer <- function(feature, buffer = 1500, feature_date_col = "date_inspected",
                                   vri, vri_year_col = "projected_date", vri_age_col = "proj_age_1",
-                                  depletions, depletions_year_col = "depletion_year",
-                                  buffer = 1500) {
+                                  depletions, depletions_year_col = "depletion_year") {
   # Data health checks
   stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
   stopifnot("`feature` must be a sf class POINT geometry." = sf::st_geometry_type(feature) %in% 'POINT')
@@ -229,6 +226,72 @@ prct_age_class_buffer <- function(feature, feature_date_col = "date_inspected",
   out <- aggregate(area ~ age_class, f1_final, FUN = "sum")
   out$prct_forest_area <- units::drop_units(out$area / sum(out$area)) 
   out$prct_total_area <- units::drop_units(out$area / sum(sf::st_area(f1)))
+  return(out)
+  
+}
+
+
+
+#' Calculate road density (in m2) around a feature
+#'
+#' @param feature Point feature (e.g., den)
+#' @param feature_buffer Buffer size around point feature, in meters (default 1500 m)
+#' @param roads Linestring feature containing roads
+#' @param roads_buffer_col Column name in `roads` that contains road buffering distance (e.g., meters buffer for highways vs roads)
+#' @param feaure_date_col (optional) Column name in `feature` that contains a date to use as the reference year for roads subsetting
+#' @param filter_by_date (boolean) Should the function filter roads by construction date when calculating distance to feature?
+#'
+#' @return
+#' @export
+road_density_buffer <- function(feature, feature_buffer = 1500, feature_date_col = "date_inspected",
+                                roads, roads_buffer_col = "buffer", 
+                                filter_by_date = TRUE, 
+                                return_road_area = TRUE) {
+  # Data health checks
+  stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
+  stopifnot("`feature` must be a sf class POINT geometry." = all(sf::st_geometry_type(feature) %in% 'POINT'))
+  stopifnot("`roads` must be a sf class geometry." = inherits(roads, "sf"))
+  stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
+  stopifnot("`feature` must be in the same CRS as `roads`." = sf::st_crs(feature) == sf::st_crs(roads))
+  
+  if (filter_by_date) {
+    stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = nrow(feature) == 1)
+    roads <- roads[which((roads$award_date <= feature[[feature_date_col]] | is.na(roads$award_date)) & (roads$retirement_date >= feature[[feature_date_col]] | is.na(roads$retirement_date) | roads$life_cycle_status_code == 'ACTIVE')),]
+  }
+  
+  # Select roads that touch feature
+  roads <- roads[sf::st_is_within_distance(roads, feature, dist = feature_buffer, sparse = F),]
+  
+  # Buffer and union roads according to buffer col
+  roads <- sf::st_buffer(roads, dist = roads[[roads_buffer_col]])
+  roads <- sf::st_union(roads)
+  
+  # Buffer feature
+  # If we're ignoring the road dates, we can just use the dens df
+  feature <- sf::st_buffer(feature, feature_buffer)
+  
+  # Intersect buffered roads with feature
+  intxn <- suppressWarnings(sf::st_intersection(feature, roads))
+  
+  # Calculate road area
+  intxn$road_area <- sf::st_area(intxn)
+  
+  # Replace NA road areas with zero
+  intxn$road_area <- ifelse(is.na(intxn$road_area), 0, intxn$road_area)
+  
+  # Calculate density
+  out <- intxn$road_area / (pi * (feature_buffer^2))
+  
+  # If user wants road area returned as well
+  if (return_road_area) {
+    out <- list(out)
+    out[[2]] <- intxn$road_area
+    out[[3]] <- (pi * (feature_buffer^2))
+    names(out) <- c("road_density_m2", "road_area", "total_area")
+    out$road_density <- ifelse(length(out$road_density) == 0, 0, out$road_density)
+    out$road_area <- ifelse(length(out$road_area) == 0, 0, out$road_area)
+  }
+  
   return(out)
   
 }
