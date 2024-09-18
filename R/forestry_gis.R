@@ -125,7 +125,10 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
 #' @examples
 st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected", filter_by_date = TRUE) {
   stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
-  stopifnot("`feature` must be a sf class POINT geometry." = sf::st_geometry_type(feature) %in% 'POINT')
+  stopifnot("`feature` must be a sf class POINT geometry." = all(sf::st_geometry_type(feature) %in% 'POINT'))
+  stopifnot("`roads` must be a sf class geometry." = inherits(roads, "sf"))
+  stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
+  
   
   if (filter_by_date) {
     stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = nrow(feature) == 1)
