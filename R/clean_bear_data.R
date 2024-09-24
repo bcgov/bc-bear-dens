@@ -31,8 +31,9 @@ clean_bears <- function(df) {
   # Clean up current layer
   if (layer == "current") {
     # Clean up title case
-    df <- df |> dplyr::mutate_at(c("district", "landscape_unit", "x_f_ownership", "den_tree_species"),
+    df <- df |> dplyr::mutate_at(c("district", "landscape_unit", "x_f_ownership"),
                                      tools::toTitleCase)
+    df <- df |> dplyr::mutate_at(c("den_tree_species"), snakecase::to_title_case) # tools vs snakecase handle acronyms differently
     
     # Clean up upper case
     df$x_bec_zone <- ifelse(df$x_bec_zone == "Unknown", 
