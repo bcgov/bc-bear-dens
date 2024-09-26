@@ -62,6 +62,10 @@ p <- clean_bears(p)
 any(is.na(dens$den_id)) # y u c k 
 any(is.na(f$den_id))
 
+# Check for any NULL sample ids
+any(is.na(f$sample_id))
+f[is.na(f$sample_id),]
+
 # Check dud dens
 dens[is.na(dens$den_id),]
 dens[grep("test|delete", dens$den_id, ignore.case = T),]
