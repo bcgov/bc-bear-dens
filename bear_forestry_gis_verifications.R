@@ -70,16 +70,6 @@ if (nrow(f) != nrow(f_full)) stop("WARNING: You have duplicated den IDs in the d
 
 #### LOAD GIS LAYERS ####
 
-# Define function to read in large WKT csv files
-read_lrg_wkt <- function(filepath, wkt_col = "WKT_GEOM", crs = 3005) {
-  x <- arrow::read_csv_arrow(filepath)
-  x <- as.data.frame(x)
-  x <- sf::st_as_sf(x, wkt = wkt_col)
-  sf::st_crs(x) <- crs
-  # Maybe drop the giant WKT column - don't need it anymore?
-  return(x)
-}
-
 # > VRI ----
 
 vri_hg <- read_lrg_wkt("GIS/HG_VEG_COMP_LYR_L1_POLY_202409060839.csv")
@@ -124,14 +114,21 @@ dir.create(paste0("GIS/FVL"), recursive = TRUE)
 
 # Loop through bear den years, create FVL, and save it
 # Start time 12:14 pm, end time 1:22
+# After code fix: 15:29 - 16:43
 lapply(den_years, function(x) {
-  message(x, " start ", Sys.time())
-  fvl <- create_fvl(den_year = x,
-                    vri = vri,
-                    depletions = deps)
-  sf::st_write(fvl, paste0("GIS/FVL/FVL_", x, ".gpkg")) # Save each year's FVL 
-  message(x, " end ", Sys.time())
+  tryCatch({
+    message(x, " start ", Sys.time())
+    fvl <- create_fvl(den_year = x,
+                      vri = vri,
+                      depletions = deps)
+    sf::st_write(fvl, paste0("GIS/FVL/FVL_", x, ".gpkg")) # Save each year's FVL 
+    message(x, " end ", Sys.time())
+    }, error = function(e) {
+      message("Error with ", den_years[x])
+      })
 })
+beepr::beep()
+Sys.time()
 
 # Nice.
 rm(vri, deps) # Remove big files we no longer need
@@ -150,7 +147,7 @@ f_full$dist_lt40 <- NA
 f_full$dist_gt40 <- NA
 f_full$dist_road <- NA
 
-# Start 3:07 pm
+# Start 4:44 pm - 
 f_x_list <- lapply(den_years, function(x) {
   # Subset dens to given year
   f_x <- f_full[lubridate::year(f_full$date_inspected) == x,]
@@ -178,7 +175,7 @@ f_full <- f_x # Overwrite f_full if all looks good
 rm(f_x_list, f_x)
 
 # Save just in case
-write.csv(f_x, "temp/Backups/20240912-114551/forestry_gis_verifications.csv",
+write.csv(f_full, "temp/Backups/20240918-152138/forestry_gis_verifications.csv", #"temp/Backups/20240912-114551/forestry_gis_verifications.csv",
           na = "",
           row.names = FALSE)
 
@@ -209,13 +206,13 @@ f_x_list <- lapply(den_years, function(x) {
   message("Finished ", x, " at ", Sys.time())
   return(f_x)
 })
-
+beepr::beep()
 f_x <- dplyr::bind_rows(f_x_list) # Inspect f_x
 f_full <- f_x # Overwrite f_full with f_x if all looks good
 rm(f_x_list, f_x)
 
 # Save results
-write.csv(f_full, "temp/Backups/20240912-114551/forestry_gis_verifications.csv",
+write.csv(f_full, "temp/Backups/20240918-152138/forestry_gis_verifications.csv", #"temp/Backups/20240912-114551/forestry_gis_verifications.csv",
           na = "",
           row.names = FALSE)
 
@@ -223,7 +220,7 @@ rm(roads)
 gc()
 
 
-#### COMPARE TO RAW FIELD DATA ####
+#### COMPARE VERIFICATIONS ####
 
 f_full <- merge(f, 
                 f_full[,c("objectid.y", "prop_forested_60m", "dist_lt40", "dist_gt40", "dist_road")], 
@@ -329,10 +326,13 @@ names(f_c) <- c("objectid", "den_id", "sample_id", "date_inspected",
                 "raw_prop_forest_60m", "v_prop_forest_60m", "new_prop_forest_60m", "prop_forest_60m_VDIFF", "prop_forest_60m_RAWDIFF",
                 "raw_dist_lt40", "v_dist_lt40", "new_dist_lt40", "dist_lt40_VDIFF", "dist_lt40_RAWDIFF",
                 "raw_dist_gt40", "v_dist_gt40", "new_dist_gt40", "dist_gt40_VDIFF", "dist_gt40_RAWDIFF",
-                "raw_dist_road", "v_dist_road", "new_dist_road", "dist_road_VIDFF", "dist_road_RAWDIFF")
+                "raw_dist_road", "v_dist_road", "new_dist_road", "dist_road_VDIFF", "dist_road_RAWDIFF")
 
-# Save to inspect in GIS
-sf::write_sf(f_c, "temp/Backups/20240912-114551/forestry_gis_verifications_check.gpkg")
+# Save to inspect in GIS & Excel
+write.csv(f_c, "temp/Backups/20240918-152138/forestry_gis_verifications.csv",
+          na = "",
+          row.names = F)
+sf::write_sf(f_c, "temp/Backups/20240918-152138/forestry_gis_verifications.gpkg") #"temp/Backups/20240912-114551/forestry_gis_verifications_check.gpkg")
 
 #### PUSH CLEANED DATA ####
 

@@ -3,6 +3,27 @@
 
 # TODO: In an ideal world, make FVL it's own type of object class
 
+#' Read like WKT files
+#' 
+#' Large GIS files are stored as CSVs, with the geometry stored in the
+#' 'WKT_GEOM' column. This function reads the CSVs with `{arrow}`, then
+#' converts it to an `sf` object with a standard CRS of 3005 (BC Albers).
+#'
+#' @param filepath Path to csv with spatial data.
+#' @param wkt_col Column name containing WKT geometry. Default is `WKT_GEOM`.
+#' @param crs Coordinate reference system of the spatial data. Default is `3005` (BC Albers).
+#'
+#' @return
+#' @export
+read_lrg_wkt <- function(filepath, wkt_col = "WKT_GEOM", crs = 3005) {
+  x <- arrow::read_csv_arrow(filepath)
+  x <- as.data.frame(x)
+  x <- sf::st_as_sf(x, wkt = wkt_col)
+  sf::st_crs(x) <- crs
+  # Maybe drop the giant WKT column - don't need it anymore?
+  return(x)
+}
+
 #' Create the Forestry Verification Layer for a given year
 #' 
 #' This function is still in its infancy, and easily broken if incorrect VRI
@@ -30,17 +51,24 @@ create_fvl <- function(den_year, vri, depletions) {
   vri <- janitor::clean_names(vri)
   depletions <- janitor::clean_names(depletions)
   
+  sf::st_geometry(vri) <- "geom"
+  sf::st_geometry(depletions) <- "geom"
+  
   # Subtract the den year from the VRI reference year
   year_diff <- vri_year - den_year
   
   # Reclassify the age classes of the polygons to less than 40
   # or greater than 40 yo (at the time of the bear den visit).
+  # Any polygons that were depleted AFTER the den year would be negative.
+  # Any polygons that were depleted THE SAME YEAR as the den would == 0.
+  vri$reference_age <- vri$proj_age_1 - year_diff 
+  
   message("Extracting non-forested areas circa ", den_year, "...")
-  lt40 <- vri[(vri$proj_age_1 - year_diff) <= 40,] |>
+  lt40 <- vri[(vri$reference_age <= 40 & vri$reference_age >= 0),] |>
     dplyr::summarise()
   
   message("Extracting forested areas circa ", den_year, "...")
-  gt40 <- vri[(vri$proj_age_1 - year_diff) > 40,] |>
+  gt40 <- vri[(vri$reference_age > 40 | vri$reference_age < 0),] |>
     dplyr::summarise()
   
   # Extract depletions that occurred during the same year or before
@@ -52,22 +80,57 @@ create_fvl <- function(den_year, vri, depletions) {
   depletions <- dplyr::summarise(depletions)
   if (!sf::st_is_valid(depletions)) depletions <- sf::st_make_valid(depletions)
   
+  # Extract wildlife retention patches from depletions layer
+  # i.e., extract holes in depletions polygons
+  wrp <- 
+    depletions |> 
+    sf::st_cast("MULTIPOLYGON") |> # cast to multipolygon first, or some geometries will be deleted
+    sf::st_cast("POLYGON") |>
+    dplyr::mutate(area2 = sf::st_area(geom)) |>
+    dplyr::filter(area2 > units::set_units(1600, "m2")) |> # remove little tiny shards polygons
+    nngeo::st_remove_holes(max_area = 1600) |> # remove tiny holes
+    sf::st_cast("MULTIPOLYGON") |>
+    sf::st_coordinates() |>
+    as.data.frame() |>
+    dplyr::filter(L1 > 1) |>
+    sfheaders::sf_polygon(x = "X", y = "Y", polygon_id = "L3" , keep = TRUE) |>
+    sf::st_combine() |>
+    sf::st_union() |>
+    sf::st_set_crs(3005) |>
+    sf::st_as_sf() |>
+    sf::st_make_valid()
+    # depletions |> 
+    # #sf::st_cast("MULTIPOLYGON") |>
+    # sf::st_coordinates() |>
+    # as.data.frame() |>
+    # dplyr::filter(L1 > 1) |>
+    # sfheaders::sf_polygon(x = "X", y = "Y", polygon_id = "L1" , keep = TRUE) |>
+    # sf::st_combine() |>
+    # sf::st_union() |>
+    # sf::st_set_crs(3005) |>
+    # sf::st_as_sf()
+  
   # Then union the depletions to lt40 and 
   # substract the depletions from gt40 
   # for the correct years.
   message("Merging depletions layer with non-forested VRI...")
-  lt40 <- sf::st_union(lt40, depletions) #|>
-    #sf::st_collection_extract() |> # stupid we have to change back to multipolygon...
-    #sf::st_cast('MULTIPOLYGON') |> 
-    #sf::st_union()
+  lt40 <- sf::st_union(lt40, depletions) |>
+    sf::st_difference(sf::st_combine(wrp))
   
   message("Deleting depletions layer from forested VRI...")
-  gt40 <- sf::st_difference(gt40, depletions) #|>
-    #sf::st_collection_extract() |> # stupid we have to change back to multipolygon...
-    #sf::st_cast('MULTIPOLYGON') |> 
-    #sf::st_union()
+  gt40 <- sf::st_difference(gt40, depletions) |> # not sure why this is creating a geometrycollection??
+    sf::st_collection_extract('POLYGON') |> # stupid we have to change back to multipolygon...
+    sf::st_union() |>
+    sf::st_as_sf() |>
+    sf::st_union(wrp)
   
   rm(depletions)
+  
+  message("Combining forested and non-forested layers...")
+  
+  # Ensure geometry columns have the same name
+  sf::st_geometry(lt40) <- "geom"
+  sf::st_geometry(gt40) <- "geom"
   
   # Add classification
   gt40$forested <- "Forested"
@@ -75,7 +138,7 @@ create_fvl <- function(den_year, vri, depletions) {
   
   # Merge and spit out
   out <- dplyr::bind_rows(gt40, lt40)
-  out <- sf::st_collection_extract(out)
+  #out <- sf::st_collection_extract(out)
   
   return(out)
   
@@ -124,7 +187,7 @@ st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected"
   stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
   stopifnot("`feature` must be a sf class POINT geometry." = all(sf::st_geometry_type(feature) %in% 'POINT'))
   stopifnot("`roads` must be a sf class geometry." = inherits(roads, "sf"))
-  stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
+  #stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
   
   
   if (filter_by_date) {

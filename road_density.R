@@ -51,15 +51,6 @@ if (nrow(f) != nrow(f_full)) stop("WARNING: You have duplicated den IDs in the d
 
 #### LOAD GIS LAYERS ####
 
-# Define function to read in large WKT csv files
-read_lrg_wkt <- function(filepath, wkt_col = "WKT_GEOM", crs = 3005) {
-  x <- arrow::read_csv_arrow(filepath)
-  x <- as.data.frame(x)
-  x <- sf::st_as_sf(x, wkt = wkt_col)
-  sf::st_crs(x) <- crs
-  # Maybe drop the giant WKT column - don't need it anymore?
-  return(x)
-}
 
 # > Roads ----
 
