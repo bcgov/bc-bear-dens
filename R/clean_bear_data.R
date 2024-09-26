@@ -49,6 +49,7 @@ clean_bears <- function(df) {
     # Replace any instances of words as  needed
     df$landscape_unit <- gsub("Skidigate", "Skidegate", df$landscape_unit)
     df$den_tree_species <- gsub("Red Cedar", "Cw", df$den_tree_species)
+    df$den_tree_species <- gsub("Fed", "Fd", df$den_tree_species)
   }
   
   # Clean up field visits layer
