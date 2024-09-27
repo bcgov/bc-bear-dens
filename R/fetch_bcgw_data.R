@@ -10,7 +10,9 @@
 #     to speed up data downloads.
 # 3. ENSURE YOU ARE CONNECTED TO THE VPN! Can't connect to 
 #     the db without it.
-# 4. For the {targets} pipeline specifically, you need to 
+# 4. For the {targets} pipeline specifically, you need to
+#     manually set your BCGW keys first by running `bcgw_set_keys()`.
+# 5. For the {targets} pipeline specifically, you need to 
 #     connect and disconnect from the database within each
 #     fetching function separately.
 
@@ -125,8 +127,7 @@ query_hg_vri <- function(regions) {
                                WHERE PROJ_AGE_1 IS NOT NULL
                                AND sdo_anyinteract(geometry,
                                sdo_geometry('", regions[['WKT']][regions$region == "HG"], "', 3005)
-                               ) = 'TRUE'
-                          fetch next 10 rows only")
+                               ) = 'TRUE'")
   # Execute query
   out_poly <- DBI::dbGetQueryArrow(conn, spatial_query)
   out_poly <- as.data.frame(out_poly) # this sort of defeats the purpose of arrow, but can't figure out how to make it play nice with targets atm
@@ -155,8 +156,7 @@ query_vi_vri <- function(regions) {
                                WHERE PROJ_AGE_1 IS NOT NULL
                                AND sdo_anyinteract(geometry,
                                sdo_geometry('", regions[['WKT']][regions$region == "VI"], "', 3005)
-                               ) = 'TRUE'
-                          fetch next 10 rows only")
+                               ) = 'TRUE'")
   # Execute query
   out_poly <- DBI::dbGetQueryArrow(conn, spatial_query)
   out_poly <- as.data.frame(out_poly) # this sort of defeats the purpose of arrow, but can't figure out how to make it play nice with targets atm
@@ -185,8 +185,7 @@ query_basemapping_roads <- function(regions) {
                                ) = 'TRUE'
                         OR sdo_anyinteract(geometry,
                                sdo_geometry('", regions[['WKT']][regions$region == 'VI'], "', 3005)
-                               ) = 'TRUE'
-                          fetch next 10 rows only")
+                               ) = 'TRUE'")
   # Execute query
   out_poly <- DBI::dbGetQueryArrow(conn, spatial_query)
   out_poly <- as.data.frame(out_poly) # this sort of defeats the purpose of arrow, but can't figure out how to make it play nice with targets atm
@@ -220,8 +219,7 @@ query_forestry_roads <- function(regions) {
                                ) = 'TRUE'
                         OR sdo_anyinteract(geometry,
                                sdo_geometry('", regions[['WKT']][regions$region == 'VI'], "', 3005)
-                               ) = 'TRUE'
-                          fetch next 10 rows only")
+                               ) = 'TRUE'")
   # Execute query
   out_poly <- DBI::dbGetQueryArrow(conn, spatial_query)
   out_poly <- as.data.frame(out_poly) # this sort of defeats the purpose of arrow, but can't figure out how to make it play nice with targets atm
@@ -251,8 +249,7 @@ query_private_land <- function(regions) {
                                ) = 'TRUE'
                         OR sdo_anyinteract(geometry,
                                sdo_geometry('", regions[['WKT']][regions$region == 'VI'], "', 3005)
-                               ) = 'TRUE')
-                          fetch next 10 rows only")
+                               ) = 'TRUE')")
   # Execute query
   out_poly <- DBI::dbGetQueryArrow(conn, spatial_query)
     # Exit
