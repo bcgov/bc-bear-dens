@@ -14,7 +14,8 @@ tar_option_set(
                "keyring",
                "DBI",
                "arrow",
-               "sf"), # Packages that your targets need for their tasks.
+               "sf",
+               "lubridate"), # Packages that your targets need for their tasks.
   format = "qs", # Optionally set the default storage format. qs is fast.
   
   # Pipelines that take a long time to run may benefit from
@@ -55,9 +56,13 @@ tar_option_set(
 tar_source()
 # tar_source("other_functions.R") # Source other scripts as needed.
 
+# API tokens
+source("temp/token.R")
+
 # Run tar_make() to execute the pipeline
 list(
   #tar_target(bcgw_keys, bcgw_set_keys()), # need a better way to handle this... if the keys aren't set, the pipeline will fail
+  # Query BCGW
   tar_target(test_poly, test_bcgw()),
   tar_target(regions, read_regions()),
   tar_target(hg_vri, query_hg_vri(regions)),
@@ -65,5 +70,25 @@ list(
   tar_target(hg_vi_roads, query_basemapping_roads(regions)),
   tar_target(hg_vi_forestry_sections, query_forestry_roads(regions)),
   tar_target(hg_vi_private_land, query_private_land(regions)),
+  # Query AGOL
+  tar_target(dens, clean_bears(fetch_bears(token = token, layer = "current"))),
+  tar_target(f, clean_bears(fetch_bears(token = token, layer = "field visits"))),
+  tar_target(p, clean_bears(fetch_bears(token = token, layer = "potential"))),
+  tar_target(backup, backup_bears(dens, f, p)), # Even if token changes, if dens, f, and p don't change, it won't create a backup!
+  # Prepare GIS layers for FVL creation
+  tar_target(den_years, pull_den_years(f)), # Next create FVLs for each year
+  tar_target(vri, merge_vri(vri_list = list(hg_vri, vi_vri)) |>
+               sf::st_as_sf(wkt = "wkt_geom", crs = 3005)),
+  tar_target(deps, load_depletions(regions = regions)),
+  # Actually create FVLs (will take ~4-5 hours)
+  # Wishlist: organize the pipeline to track each yearly VRI 
+  # and yearly depletion layers, so that the FVL is only re-created
+  # if the underlying VRI and depletion layer is updated.
+  tar_target(FVLs,
+             command = create_fvl(den_year = den_years,
+                                  vri = vri,
+                                  depletions = deps),
+             pattern = map(den_years),
+             iteration = "vector")
   #tar_target(hg_vi_private_land, sf::st_as_sf(tar_read(hg_vi_private_land))) # If you wanted to then use the sf later in the pipeline
 )
