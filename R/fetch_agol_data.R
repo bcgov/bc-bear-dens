@@ -27,3 +27,29 @@ fetch_bears <- function(layer = "field visits", token) {
   bears <- sf::st_read(request)
   return(bears)
 }
+
+
+backup_bears <- function(dens, f, p, path = "temp/Backups") {
+  # Store to `temp` folder as a data backup
+  systime <- format(Sys.time(), "%Y%m%d-%H%M%S")
+  
+  # Create backup folder
+  path <- file.path(path, systime)
+  dir.create(path, recursive = TRUE)
+  
+  # Current
+  sf::st_write(dens, paste0(path, "/dens_current_", systime, ".gpkg"))
+  
+  # Field visits
+  write.csv(f, paste0(path, "/dens_visits_", systime, ".csv"),
+            row.names = FALSE,
+            na = "")
+  
+  # Potential
+  sf::st_write(p, paste0(path, "/dens_potential_", systime, ".gpkg"))
+}
+
+pull_den_years <- function(x, date_col = "date_inspected") {
+  out <- sort(unique(lubridate::year(x[["date_inspected"]])))
+  return(out)
+}
