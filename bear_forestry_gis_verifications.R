@@ -110,11 +110,12 @@ plyr::count(lubridate::year(f_full$date_inspected)) |> dplyr::arrange(freq)
 # for each year and store them in a list. Instead, create the layer for
 # a given year, then pull out the GIS data (distance to nearest tree, etc.)
 # and store THAT in memory, then wipe that year and do the next year.
-dir.create(paste0("GIS/FVL"), recursive = TRUE)
+dir.create(paste0("GIS/FVL"), recursive = TRUE, showWarnings = FALSE)
 
 # Loop through bear den years, create FVL, and save it
 # Start time 12:14 pm, end time 1:22
 # After code fix: 15:29 - 16:43
+# After the next code fix to add wildlife retention patches: takes ~20-30 mins per year
 lapply(den_years, function(x) {
   tryCatch({
     message(x, " start ", Sys.time())
@@ -124,7 +125,7 @@ lapply(den_years, function(x) {
     sf::st_write(fvl, paste0("GIS/FVL/FVL_", x, ".gpkg")) # Save each year's FVL 
     message(x, " end ", Sys.time())
     }, error = function(e) {
-      message("Error with ", den_years[x])
+      message("Error with ", x)
       })
 })
 beepr::beep()
