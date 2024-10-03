@@ -76,39 +76,53 @@ create_fvl <- function(den_year, vri, depletions) {
   message("Extracting depletions circa ", den_year, "...")
   depletions <- depletions[depletions$depletion_year <= den_year, ]
   
+  # Clean up depletions
+  # depletions <- 
+  # depletions |>
+  #   sf::st_cast("MULTIPOLYGON") |> # cast to multipolygon first, or some geometries will be deleted
+  #   sf::st_cast("POLYGON") |>
+  #   sf::st_make_valid() |>
+  #   tibble::rownames_to_column(var = "objectid2") |>
+  #   dplyr::mutate(area2 = sf::st_area(geom)) |>
+  #   dplyr::filter(area2 > units::set_units(1600, "m2")) |> # remove little tiny shards polygons
+  #   nngeo::st_remove_holes(max_area = 1600) |>
+  #   sf::st_make_valid() |>
+  #   dplyr::select(objectid2)
+  
+  # Extract wildlife retention patches from depletions layer
+  # i.e., extract holes in depletions polygons
+  # We're changing tack here, and simply doing st_difference to extract
+  # message("Extracting wildlife retention patches circa ", den_year, "...")
+  # depletions_no_holes <- nngeo::st_remove_holes(depletions)
+  # #depletions_no_holes <- sf::st_as_sf(sfheaders::sf_remove_holes(depletions))
+  # wrp <- sf::st_difference(depletions_no_holes, depletions)
+  # wrp <- wrp[wrp$objectid2 == wrp$objectid2.1,] # this is wild and I'm not sure why this is happening, but this is the fix for now
+  # wrp <- sf::st_combine(wrp)
+  
   # Merge into single poly
   depletions <- dplyr::summarise(depletions)
   if (!sf::st_is_valid(depletions)) depletions <- sf::st_make_valid(depletions)
   
-  # Extract wildlife retention patches from depletions layer
-  # i.e., extract holes in depletions polygons
-  wrp <- 
-    depletions |> 
+  # Extract wildlife retention area holes
+  message("Extracting wildlife retention patches circa ", den_year, "...")
+  wrp <-
+    depletions |>
     sf::st_cast("MULTIPOLYGON") |> # cast to multipolygon first, or some geometries will be deleted
     sf::st_cast("POLYGON") |>
     dplyr::mutate(area2 = sf::st_area(geom)) |>
     dplyr::filter(area2 > units::set_units(1600, "m2")) |> # remove little tiny shards polygons
     nngeo::st_remove_holes(max_area = 1600) |> # remove tiny holes
-    sf::st_cast("MULTIPOLYGON") |>
+    #sf::st_cast("MULTIPOLYGON") |>
     sf::st_coordinates() |>
     as.data.frame() |>
     dplyr::filter(L1 > 1) |>
-    sfheaders::sf_polygon(x = "X", y = "Y", polygon_id = "L3" , keep = TRUE) |>
+    dplyr::mutate(objectid = paste0(L1, ".", L2)) |>
+    sfheaders::sf_polygon(x = "X", y = "Y", polygon_id = "objectid" , keep = TRUE) |>
     sf::st_combine() |>
     sf::st_union() |>
     sf::st_set_crs(3005) |>
     sf::st_as_sf() |>
     sf::st_make_valid()
-    # depletions |> 
-    # #sf::st_cast("MULTIPOLYGON") |>
-    # sf::st_coordinates() |>
-    # as.data.frame() |>
-    # dplyr::filter(L1 > 1) |>
-    # sfheaders::sf_polygon(x = "X", y = "Y", polygon_id = "L1" , keep = TRUE) |>
-    # sf::st_combine() |>
-    # sf::st_union() |>
-    # sf::st_set_crs(3005) |>
-    # sf::st_as_sf()
   
   # Then union the depletions to lt40 and 
   # substract the depletions from gt40 
@@ -117,7 +131,7 @@ create_fvl <- function(den_year, vri, depletions) {
   lt40 <- sf::st_union(lt40, depletions) |>
     sf::st_difference(sf::st_combine(wrp))
   
-  message("Deleting depletions layer from forested VRI...")
+  message("Deleting depletions layer from forested VRI and merging WRPs...")
   gt40 <- sf::st_difference(gt40, depletions) |> # not sure why this is creating a geometrycollection??
     sf::st_collection_extract('POLYGON') |> # stupid we have to change back to multipolygon...
     sf::st_union() |>
@@ -356,4 +370,27 @@ road_density_buffer <- function(feature, feature_buffer = 1500, feature_date_col
   
   return(out)
   
+}
+
+
+#### TARGETS FUNCTIONS ####
+
+# Functions here bundle up individual targets in the _targets.R file
+
+merge_vri <- function(vri_list) {
+  vri <- dplyr::bind_rows(vri_list)
+  vri <- janitor::clean_names(vri)
+  return(vri)
+}
+
+load_depletions <- function(regions, 
+                            path = "../../GIS/BC/Depletions/2023_Depletions.gpkg") {
+  deps <- sf::st_read(path)
+  deps <- sf::st_intersection(deps, regions)
+  deps <- janitor::clean_names(deps)
+  
+  # Drop giant wkt column
+  deps <- deps[,!(names(deps) %in% 'wkt')]
+  
+  return(deps)
 }
