@@ -50,6 +50,7 @@ backup_bears <- function(dens, f, p, path = "temp/Backups") {
 }
 
 pull_den_years <- function(x, date_col = "date_inspected") {
-  out <- sort(unique(lubridate::year(x[["date_inspected"]])))
+  yrs <- sort(unique(lubridate::year(x[["date_inspected"]])))
+  out <- data.frame(years = yrs)
   return(out)
 }
