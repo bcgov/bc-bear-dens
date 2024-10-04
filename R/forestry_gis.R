@@ -165,7 +165,7 @@ create_fvl <- function(den_year, vri, depletions) {
 
 #' Proportion of area forested within a given radius around a given point feature
 #'
-#' @param feature Point feature (e.g., den)
+#' @param feature Point feature (e.g., dens)
 #' @param fvl Forest verification layer to use for proportion forested calculation
 #' @param m Buffer radius around point feature, in meters
 #'
@@ -178,15 +178,22 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
   stopifnot("`fvl` must be a sf class MULTIPOLYGON or POLYGON geometry." = any(sf::st_geometry_type(fvl) %in% c('MULTIPOLYGON', 'POLYGON')))
   stopifnot("`feature` must be in the same CRS as `fvl`." = sf::st_crs(feature) == sf::st_crs(fvl))
   
-  stopifnot("At this time this function only supports evaluating proportion forested for one feature at a time." = nrow(feature) == 1)
-  
   circle <- sf::st_buffer(feature, dist = m)
   circle <- suppressWarnings(sf::st_intersection(circle, fvl))
+  circle$area_m2 <- units::drop_units(sf::st_area(circle))
   
-  forested_m2 <- sum(sf::st_area(circle[circle$forested == "Forested",]))
-  total_m2 <- sum(sf::st_area(circle))
+  x <- aggregate(area_m2 ~ forested + sample_id, circle, FUN = "sum")
+  x <- tidyr::pivot_wider(x, 
+                          id_cols = "sample_id", 
+                          names_from = "forested", 
+                          values_from = "area_m2", 
+                          values_fn = sum)
+  x[is.na(x)] <- 0
+  x$total <- rowSums(x[,2:3], na.rm = TRUE)
   
-  out <- units::drop_units(forested_m2/total_m2)
+  x$prop_forested <- x$Forested / x$total
+  
+  out <- x$prop_forested
   return(out)
 }
 
