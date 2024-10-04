@@ -217,7 +217,13 @@ st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected"
   
   if (filter_by_date) {
     stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = nrow(feature) == 1)
-    roads <- roads[which((roads$award_date <= feature[[date_col]] | is.na(roads$award_date)) & (roads$retirement_date >= feature[[date_col]] | is.na(roads$retirement_date) | roads$life_cycle_status_code == 'ACTIVE')),]
+    sql_query <- paste0("SELECT * FROM roads WHERE (award_date <= '", 
+                    feature[[date_col]], 
+                    "' OR award_date IS NULL) AND (retirement_date >= '", 
+                    feature[[date_col]], 
+                    "' OR retirement_date IS NULL OR life_cycle_status_code = 'ACTIVE')")
+    
+    roads <- tidyquery::query(sql = sql_query)
   }
   
   out <- suppressMessages(nngeo::st_nn(feature, roads, returnDist = T, progress = F))
@@ -225,7 +231,7 @@ st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected"
   if (filter_by_date) {
     out <- out$dist[[1]][1]
   } else {
-    out <- out$dist
+    out <- unlist(out$dist)
   }
   
   return(out)
@@ -388,10 +394,10 @@ road_density_buffer <- function(feature, feature_buffer = 1500, feature_date_col
 
 # Functions here bundle up individual targets in the _targets.R file
 
-merge_vri <- function(vri_list) {
-  vri <- dplyr::bind_rows(vri_list)
-  vri <- janitor::clean_names(vri)
-  return(vri)
+merge_bcgw_lyrs <- function(bcgw_list) {
+  out <- dplyr::bind_rows(bcgw_list)
+  out <- janitor::clean_names(out)
+  return(out)
 }
 
 load_depletions <- function(regions, 
@@ -404,4 +410,21 @@ load_depletions <- function(regions,
   deps <- deps[,!(names(deps) %in% 'wkt')]
   
   return(deps)
+}
+
+# Runs all 4 forestry verification scripts in one go and
+# outputs a dataframe of results.
+verify_forestry <- function(feature, year, date_col = "date_inspected") {
+  # Subset `feature` to the correct year
+  feature <- feature[lubridate::year(feature[[date_col]]) == year, ]
+  # Load the correct FVL target
+  fvl <- tar_read(paste0("FVL_", year))
+  # Run the verifications
+  # 01 Proportion forested within 60m
+  out_prop_forest <- st_proportion_forested_alt(feature = feature, fvl = fvl)
+  # 02 Distance to <40 yo forest
+  out_lt40 <- unlist(nngeo::st_nn(feature, fvl[fvl$forested == 'Non-Forested',], returnDist = T, progress = F)$dist)
+  # 03 Distance to >40 yo forest
+  out_lt40 <- unlist(nngeo::st_nn(feature, fvl[fvl$forested == 'Forested',], returnDist = T, progress = F)$dist)
+  
 }
