@@ -90,13 +90,13 @@ list(
   tar_target(deps, load_depletions(regions = regions)),
   tar_target(roads, merge_bcgw_lyrs(bcgw_list = list(hg_vi_roads, hg_vi_forestry_sections)) |>
                sf::st_as_sf(wkt = "wkt_geom", crs = 3005)),
-  # Actually create FVLs (will take ~4-5 hours)
+  # Actually create FVLs (will take ~5-6 hours)
   # Wishlist: organize the pipeline to track each yearly VRI 
   # and yearly depletion layers, so that the FVL is only re-created
   # if the underlying VRI and depletion layer is updated.
   # The low number of FVL years means that static branching might be
   # a better fit here. 
-  tar_map(
+  mapped <- tar_map(
     values = fvl_years, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
     tar_target(FVL, 
                create_fvl(den_year = years, # `years` in this case referes to the `years` column in `fvl_years` df
@@ -109,5 +109,9 @@ list(
                                roads = roads,
                                year = years, # `years` in this case referes to the `years` column in `fvl_years` df
                                ))
-    )
+    ),
+  # Combine all the fruits of our labor into one df!
+  tar_combine(forestry_verifications_full,
+              mapped[[2]],
+              command = dplyr::bind_rows(!!!.x))
 )
