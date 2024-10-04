@@ -152,7 +152,11 @@ create_fvl <- function(den_year, vri, depletions) {
   
   # Merge and spit out
   out <- dplyr::bind_rows(gt40, lt40)
-  #out <- sf::st_collection_extract(out)
+  
+  # Ensure the result spits out a (multi)polygon
+  out <- sf::st_collection_extract(out, "POLYGON")
+  
+  out$year <- den_year
   
   return(out)
   
