@@ -73,10 +73,16 @@ list(
   tar_target(hg_vi_forestry_sections, query_forestry_roads(regions)),
   tar_target(hg_vi_private_land, query_private_land(regions)),
   # Query AGOL
-  tar_target(dens, clean_bears(fetch_bears(token = token, layer = "current"))),
-  tar_target(f, clean_bears(fetch_bears(token = token, layer = "field visits"))),
-  tar_target(p, clean_bears(fetch_bears(token = token, layer = "potential"))),
-  tar_target(backup, backup_bears(dens, f, p)), # Even if token changes, if dens, f, and p don't change, it won't create a backup!
+  tar_target(dens_raw, fetch_bears(token = token, layer = "current")),
+  tar_target(f_raw, fetch_bears(token = token, layer = "field visits")),
+  tar_target(p_raw, fetch_bears(token = token, layer = "potential")),
+  tar_target(backup, backup_bears(dens_raw, f_raw, p_raw)), # Even if token changes, if dens, f, and p don't change, it won't create a backup!
+  # Clean AGOL (keep separate from raw so as to save original colnames & data, in case cleaning causes data issue)
+  tar_target(dens, clean_bears(dens_raw)),
+  tar_target(f, clean_bears(f_raw)),
+  tar_target(p, clean_bears(p_raw)),
+  # Create f_full
+  tar_target(f_full, sf::st_as_sf(merge(f, dens, by = "den_id"))),
   # Prepare GIS layers for FVL creation
   tar_target(den_years, pull_den_years(f)), # In this case, not using it for the static FVL tar_map() function. Instead using the manually created `fvl_years` df definted outside the pipeline.
   tar_target(vri, merge_vri(vri_list = list(hg_vri, vi_vri)) |>
@@ -93,5 +99,7 @@ list(
     tar_target(FVL, create_fvl(den_year = years, # `years` in this case referes to the `years` column in `fvl_years` df
                                 vri = vri,
                                 depletions = deps))
-  )
+    )
+  # Run forestry verifications
+  
 )
