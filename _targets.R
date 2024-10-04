@@ -5,7 +5,7 @@
 
 # Load packages required to define the pipeline:
 library(targets)
-# library(tarchetypes) # Load other packages as needed.
+library(tarchetypes) # Load other packages as needed.
 
 # Set target options:
 tar_option_set(
@@ -59,6 +59,8 @@ tar_source()
 # API tokens
 source("temp/token.R")
 
+fvl_years <- data.frame(years = c(2014, 2015, 2016, 2017, 2018, 2020, 2021, 2022, 2023, 2024))
+
 # Run tar_make() to execute the pipeline
 list(
   #tar_target(bcgw_keys, bcgw_set_keys()), # need a better way to handle this... if the keys aren't set, the pipeline will fail
@@ -76,7 +78,7 @@ list(
   tar_target(p, clean_bears(fetch_bears(token = token, layer = "potential"))),
   tar_target(backup, backup_bears(dens, f, p)), # Even if token changes, if dens, f, and p don't change, it won't create a backup!
   # Prepare GIS layers for FVL creation
-  tar_target(den_years, pull_den_years(f)), # Next create FVLs for each year
+  tar_target(den_years, pull_den_years(f)), # In this case, not using it for the static FVL tar_map() function. Instead using the manually created `fvl_years` df definted outside the pipeline.
   tar_target(vri, merge_vri(vri_list = list(hg_vri, vi_vri)) |>
                sf::st_as_sf(wkt = "wkt_geom", crs = 3005)),
   tar_target(deps, load_depletions(regions = regions)),
@@ -84,11 +86,12 @@ list(
   # Wishlist: organize the pipeline to track each yearly VRI 
   # and yearly depletion layers, so that the FVL is only re-created
   # if the underlying VRI and depletion layer is updated.
-  tar_target(FVLs,
-             command = create_fvl(den_year = den_years,
-                                  vri = vri,
-                                  depletions = deps),
-             pattern = map(den_years),
-             iteration = "vector")
-  #tar_target(hg_vi_private_land, sf::st_as_sf(tar_read(hg_vi_private_land))) # If you wanted to then use the sf later in the pipeline
+  # The low number of FVL years means that static branching might be
+  # a better fit here. 
+  tar_map(
+    values = fvl_years, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
+    tar_target(FVL, create_fvl(den_year = years, # `years` in this case referes to the `years` column in `fvl_years` df
+                                vri = vri,
+                                depletions = deps))
+  )
 )
