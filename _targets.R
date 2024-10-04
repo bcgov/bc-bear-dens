@@ -82,12 +82,14 @@ list(
   tar_target(f, clean_bears(f_raw)),
   tar_target(p, clean_bears(p_raw)),
   # Create f_full
-  tar_target(f_full, sf::st_as_sf(merge(f, dens, by = "den_id"))),
+  tar_target(f_full, sf::st_as_sf(merge(f, dens, by = "den_id")) |> sf::st_transform(3005)),
   # Prepare GIS layers for FVL creation
   tar_target(den_years, pull_den_years(f)), # In this case, not using it for the static FVL tar_map() function. Instead using the manually created `fvl_years` df definted outside the pipeline.
-  tar_target(vri, merge_vri(vri_list = list(hg_vri, vi_vri)) |>
+  tar_target(vri, merge_bcgw_lyrs(bcgw_list = list(hg_vri, vi_vri)) |>
                sf::st_as_sf(wkt = "wkt_geom", crs = 3005)),
   tar_target(deps, load_depletions(regions = regions)),
+  tar_target(roads, merge_bcgw_lyrs(bcgw_list = list(hg_vi_roads, hg_vi_forestry_sections)) |>
+               sf::st_as_sf(wkt = "wkt_geom", crs = 3005)),
   # Actually create FVLs (will take ~4-5 hours)
   # Wishlist: organize the pipeline to track each yearly VRI 
   # and yearly depletion layers, so that the FVL is only re-created
@@ -96,10 +98,16 @@ list(
   # a better fit here. 
   tar_map(
     values = fvl_years, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
-    tar_target(FVL, create_fvl(den_year = years, # `years` in this case referes to the `years` column in `fvl_years` df
-                                vri = vri,
-                                depletions = deps))
+    tar_target(FVL, 
+               create_fvl(den_year = years, # `years` in this case referes to the `years` column in `fvl_years` df
+                          vri = vri,
+                          depletions = deps)
+               ),
+    tar_target(forestry_verification,
+               verify_forestry(feature = f_full,
+                               fvl = FVL, # referring to the target `FVL` created in the previous step
+                               roads = roads,
+                               year = years, # `years` in this case referes to the `years` column in `fvl_years` df
+                               ))
     )
-  # Run forestry verifications
-  
 )

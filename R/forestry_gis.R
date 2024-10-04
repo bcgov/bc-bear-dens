@@ -178,16 +178,35 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
   stopifnot("`fvl` must be a sf class MULTIPOLYGON or POLYGON geometry." = any(sf::st_geometry_type(fvl) %in% c('MULTIPOLYGON', 'POLYGON')))
   stopifnot("`feature` must be in the same CRS as `fvl`." = sf::st_crs(feature) == sf::st_crs(fvl))
   
+  # Assume each row is unique feature
+  feature$id_col <- 1:nrow(feature)
+  
   circle <- sf::st_buffer(feature, dist = m)
   circle <- suppressWarnings(sf::st_intersection(circle, fvl))
   circle$area_m2 <- units::drop_units(sf::st_area(circle))
   
-  x <- aggregate(area_m2 ~ forested + sample_id, circle, FUN = "sum")
+  x <- aggregate(area_m2 ~ forested + id_col, circle, FUN = "sum")
+  # Add dummy row if one of the id's is missing (i.e., doesn't intersect
+  # w FVL at all, as in the case of SAY_CampbellLake_1_20180808)
+  if (any(!(feature$id_col %in% x$id_col))) {
+    missing_ids <- feature$id_col[!(feature$id_col %in% x$id_col)]
+    x <- rbind(x, data.frame(forested = "Forested",
+                             id_col = missing_ids,
+                             area_m2 = 0))
+  }
   x <- tidyr::pivot_wider(x, 
-                          id_cols = "sample_id", 
+                          id_cols = "id_col", 
                           names_from = "forested", 
                           values_from = "area_m2", 
                           values_fn = sum)
+  # Add in 'Forested' or 'Non-Forested' column if it's not present
+  if (length(x) < 3) {
+    if (!('Forested' %in% names(x))) {
+      x$Forested <- NA
+    } else {
+        x$`Non-Forested` <- NA
+      }
+  }
   x[is.na(x)] <- 0
   x$total <- rowSums(x[,2:3], na.rm = TRUE)
   
@@ -414,17 +433,44 @@ load_depletions <- function(regions,
 
 # Runs all 4 forestry verification scripts in one go and
 # outputs a dataframe of results.
-verify_forestry <- function(feature, year, date_col = "date_inspected") {
+verify_forestry <- function(feature, fvl, roads, year, date_col = "date_inspected", id_col = "sample_id") {
+  # Params check
+  # Wishlist
+  # TODO: handle year params better in this function/overall targets pipeline....
+  if (year != 2024) stopifnot("The FVL year and supplied `year` do not match!" = unique(fvl$year) == year)
   # Subset `feature` to the correct year
-  feature <- feature[lubridate::year(feature[[date_col]]) == year, ]
+  feature <- feature[which(lubridate::year(feature[[date_col]]) == year), ]
+  if(nrow(feature) == 0) stop("There are no features in the year ", year)
+  # Check if roads supplied
+  if(missing(roads)) stop("`roads` is required")
   # Load the correct FVL target
-  fvl <- tar_read(paste0("FVL_", year))
+  #tgt <- paste0("FVL_", year)
+  #fvl <- tar_read_raw(tgt)
   # Run the verifications
   # 01 Proportion forested within 60m
-  out_prop_forest <- st_proportion_forested_alt(feature = feature, fvl = fvl)
+  message("Calculating proportion forested...")
+  out_prop_forest <- st_proportion_forested(feature = feature, fvl = fvl)
   # 02 Distance to <40 yo forest
-  out_lt40 <- unlist(nngeo::st_nn(feature, fvl[fvl$forested == 'Non-Forested',], returnDist = T, progress = F)$dist)
+  message("Calculating distance to <40 yo forest...")
+  out_lt40 <- unlist(suppressMessages(nngeo::st_nn(feature, fvl[fvl$forested == 'Non-Forested',], returnDist = T, progress = F)$dist))
   # 03 Distance to >40 yo forest
-  out_lt40 <- unlist(nngeo::st_nn(feature, fvl[fvl$forested == 'Forested',], returnDist = T, progress = F)$dist)
-  
+  message("Calculating distance to >40 yo forest...")
+  out_gt40 <- unlist(suppressMessages(nngeo::st_nn(feature, fvl[fvl$forested == 'Forested',], returnDist = T, progress = F)$dist))
+  # 04 Distance to nearest road
+  message("Calculating distance to nearest road...")
+  sql_query <- paste0("SELECT * FROM roads WHERE (award_date <= '", 
+                      year, 
+                      "-12-31' OR award_date IS NULL) AND (retirement_date >= '", 
+                      year, 
+                      "-12-31' OR retirement_date IS NULL OR life_cycle_status_code = 'ACTIVE')")
+  roads <- tidyquery::query(sql = sql_query)
+  out_dist_road <- st_distance_nearest_road(feature, roads, filter_by_date = FALSE)
+  # Combine
+  out <- data.frame(sample_id = feature[[id_col]],
+                    prop_forest_60m = out_prop_forest,
+                    dist_lt40 = out_lt40,
+                    dist_gt40 = out_gt40,
+                    dist_road = out_dist_road)
+  return(out)
 }
+
