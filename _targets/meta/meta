@@ -4,7 +4,7 @@ backup_bears|function|fed6cfd7672513bb|||||||||||||||
 bcgw_keys|stem|3b56b8ffa0e62a6f|2ddb64e7358eb048|b823beb694419599|-519101963||t19992.9457876469s|28e76c0917097715|38|qs|local|vector|||0.81||
 bcgw_set_keys|function|4ef4a1f2aea863a9|||||||||||||||
 clean_bears|function|724b7b456510d20b|||||||||||||||
-compare_forestry_verifications|function|c0e76b38b60309d4|||||||||||||||
+compare_forestry_verifications|function|a0300be3f512f9e6|||||||||||||||
 conn|stem|b091444797fcf8a4|186e5c14b18bf069|3fc7146266b53361|992787081||t19992.9096197365s||189|rds|local|vector|||0.03||No running JVM detected. Maybe .jinit would help.
 connect_bcgw|function|39f9a06252d7f403|||||||||||||||
 create_fvl|function|ceefafc341535af2|||||||||||||||
@@ -19,8 +19,8 @@ f_raw|stem|f24b68c14756cab0|a6669e4bbb2bedf9|c4dccd6079c3374e|1087686815||t20000
 f_v|stem|c96f0a62bd19bdbf|2f5b6244a30d1834|527ca91445f01e56|-1297564563||t20003.7622507363s|462d3b8b42b92b11|14830|qs|local|vector|||0.02||
 f_v_summary|stem|533efd9dcaca2a7c|a58faef08f617f95|33d91faee3d1f160|-53016796||t20003.7631964591s|dcb6f4f9bcb93dc6|186|qs|local|vector|||0.02||
 fetch_bears|function|e9035e8d79fa87ee|||||||||||||||
-forest_qc|stem|c96f0a62bd19bdbf|2f5b6244a30d1834|527ca91445f01e56|1962084585||t20003.8492679633s|462d3b8b42b92b11|14830|qs|local|vector|||0.02||
-forest_qc_summary|stem|533efd9dcaca2a7c|dcdce0639054965e|ff92962d1cefc116|1764024511||t20003.849269086s|dcb6f4f9bcb93dc6|186|qs|local|vector|||0||
+forest_qc|stem|49f2c2a6af1dafb2|2f5b6244a30d1834|7b22f844078e462a|1962084585||t20003.8645510108s|ec6cc43ef3a9cc4f|16137|qs|local|vector|||0.03||
+forest_qc_summary|stem|533efd9dcaca2a7c|dcdce0639054965e|e6a06af30dff6267|1764024511||t20003.8645520061s|dcb6f4f9bcb93dc6|186|qs|local|vector|||0||
 forestry_verification_2014|stem|d6df66979c4258d4|b71b0f5df3352a26|4037d003cf110f6f|1517320127||t20000.9540238714s|afd7f87dad3f6f11|195|qs|local|vector|||8.81||
 forestry_verification_2015|stem|5b0d75d3788c859a|04df0d131d7753e4|3f55dc87108be744|-368769553||t20000.9541580679s|d4e1dc8172cd9f87|229|qs|local|vector|||10.33||
 forestry_verification_2016|stem|06fcc54bbdfc06ea|209859e184a33c6e|302611401eb9ee41|1786902305||t20000.9545898798s|1f1373a8740e7992|584|qs|local|vector|||35.63||
@@ -75,7 +75,7 @@ road_density_buffer|function|e35339585331a87e|||||||||||||||
 roads|stem|a55de9a36f1f543d|b8b46d3781901541|914c971e10acd88c|1038729194||t20000.7440909865s|ef36e54c78c7c7eb|51721497|qs|local|vector|||5.63||
 st_distance_nearest_road|function|cc26ea30908ba8fd|||||||||||||||
 st_proportion_forested|function|c0e9f120a448a0b8|||||||||||||||
-summarize_verifications|function|fd4e06e8e62ffd01|||||||||||||||
+summarize_verifications|function|d6d6ac44fc0c1ff3|||||||||||||||
 test_bcgw|function|dfaacc780e912095|||||||||||||||
 test_bcgw_conn|stem|bbdac923b613c2ad|822db80f08248248|a6db5743a7f487f2|1114282994||t19992.9056916737s|e7549b582959d4d7|669|rds|local|vector|||0.66||
 test_poly|stem|efb5bb480e0abc12|8e2e35e133a37665|897558516c7220d9|-824481042||t19992.9508636346s|49592db10e448623|604|qs|local|vector|||3.99||

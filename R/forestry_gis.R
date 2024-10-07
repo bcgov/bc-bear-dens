@@ -530,12 +530,33 @@ compare_forestry_verifications <- function(orig_data,
   # > Distance to nearest_road
   f_v$dist_road_RAWDIFF <- abs(f_v$raw_dist_road - f_v$new_dist_road)
   
+  ## FLAGS ##
+  
+  # Flag any records that are >10m or 30% difference from raw/legacy verifications
+  
+  # Legacy verification value flags
+  f_v$flag_legacy_prop_forest_60m <-  f_v$prop_forest_60m_VDIFF >= 30
+  f_v$flag_legacy_dist_lt40 <- f_v$dist_lt40_VDIFF >= 10 | (f_v$dist_lt40_VDIFF/f_v$v_dist_lt40) >= 0.3
+  f_v$flag_legacy_dist_gt40 <- f_v$dist_gt40_VDIFF >= 10 | (f_v$dist_gt40_VDIFF/f_v$v_dist_gt40) >= 0.3
+  f_v$flag_legacy_dist_road <- f_v$dist_road_VDIFF >= 10 | (f_v$dist_road_VDIFF/f_v$v_dist_road) >= 0.3
+  
+  # Raw value flags
+  f_v$flag_raw_prop_forest_60m <- f_v$prop_forest_60m_RAWDIFF >= 30
+  f_v$flag_raw_dist_lt40 <- f_v$dist_gt40_RAWDIFF >= 10 | (f_v$dist_gt40_RAWDIFF/f_v$raw_dist_gt40) >= 0.3
+  f_v$flag_raw_dist_gt40 <- f_v$dist_gt40_RAWDIFF >= 10 | (f_v$dist_gt40_RAWDIFF/f_v$raw_dist_gt40) >= 0.3
+  f_v$flag_raw_dist_road <- f_v$dist_road_RAWDIFF >= 10 | (f_v$dist_road_RAWDIFF/f_v$raw_dist_road) >= 0.3
+
+  
   ## CLEAN OUTPUT ##
   f_v <- f_v[,c("sample_id", 
                 "raw_prop_forest_60m", "v_prop_forest_60m", "new_prop_forest_60m", "prop_forest_60m_VDIFF", "prop_forest_60m_RAWDIFF",
+                "flag_legacy_prop_forest_60m", "flag_raw_prop_forest_60m",
                 "raw_dist_lt40", "v_dist_lt40", "new_dist_lt40", "dist_lt40_VDIFF", "dist_lt40_RAWDIFF",
+                "flag_legacy_dist_lt40", "flag_raw_dist_lt40",
                 "raw_dist_gt40", "v_dist_gt40", "new_dist_gt40", "dist_gt40_VDIFF", "dist_gt40_RAWDIFF",
-                "raw_dist_road", "v_dist_road", "new_dist_road", "dist_road_VDIFF", "dist_road_RAWDIFF")]
+                "flag_legacy_dist_gt40", "flag_raw_dist_gt40",
+                "raw_dist_road", "v_dist_road", "new_dist_road", "dist_road_VDIFF", "dist_road_RAWDIFF",
+                "flag_legacy_dist_road", "flag_raw_dist_road")]
   
   return(f_v)
 }
@@ -550,19 +571,19 @@ summarize_verifications <- function(f_v) {
                           "dist_lt40",
                           "dist_gt40",
                           "dist_road"),
-               prct_legacy_verif_overlap = c(round(100 - nrow(f_v[which(f_v$prop_forest_60m_VDIFF >= 30),]) / nrow(f_v) * 100),
-                                       round(100 - nrow(f_v[which(f_v$dist_lt40_VDIFF >= 10 | (f_v$dist_lt40_VDIFF/f_v$v_dist_lt40) >= 0.3),]) / nrow(f_v) * 100),
-                                       round(100 - nrow(f_v[which(f_v$dist_gt40_VDIFF >= 10 | (f_v$dist_gt40_VDIFF/f_v$v_dist_gt40) >= 0.3),]) / nrow(f_v) * 100),
-                                       round(100 - nrow(f_v[which(f_v$dist_road_VDIFF >= 10 | (f_v$dist_road_VDIFF/f_v$v_dist_road) >= 0.3),]) / nrow(f_v) * 100)
+               prct_legacy_verif_overlap = c(round(100 - sum(f_v$flag_legacy_prop_forest_60m, na.rm = TRUE) / nrow(f_v) * 100),
+                                       round(100 - sum(f_v$flag_legacy_dist_lt40, na.rm = TRUE) / nrow(f_v) * 100),
+                                       round(100 - sum(f_v$flag_legacy_dist_gt40, na.rm = TRUE) / nrow(f_v) * 100),
+                                       round(100 - sum(f_v$flag_legacy_dist_road, na.rm = TRUE) / nrow(f_v) * 100)
                                        ))
   
   # Compare vs raw data
   out <- cbind(
     out,
-    data.frame(prct_raw_overlap = c(round(100 - nrow(f_v[which(f_v$prop_forest_60m_RAWDIFF >= 30),]) / nrow(f_v) * 100),
-                                    round(100 - nrow(f_v[which(f_v$dist_gt40_RAWDIFF >= 10 | (f_v$dist_gt40_RAWDIFF/f_v$raw_dist_gt40) >= 0.3),]) / nrow(f_v) * 100),
-                                    round(100 - nrow(f_v[which(f_v$dist_gt40_RAWDIFF >= 10 | (f_v$dist_gt40_RAWDIFF/f_v$raw_dist_gt40) >= 0.3),]) / nrow(f_v) * 100),
-                                    round(100 - nrow(f_v[which(f_v$dist_road_RAWDIFF >= 10 | (f_v$dist_road_RAWDIFF/f_v$raw_dist_road) >= 0.3),]) / nrow(f_v) * 100)
+    data.frame(prct_raw_overlap = c(round(100 - sum(f_v$flag_raw_prop_forest_60m, na.rm = TRUE) / nrow(f_v) * 100),
+                                    round(100 - sum(f_v$flag_raw_dist_lt40, na.rm = TRUE) / nrow(f_v) * 100),
+                                    round(100 - sum(f_v$flag_raw_dist_gt40, na.rm = TRUE) / nrow(f_v) * 100),
+                                    round(100 - sum(f_v$flag_raw_dist_road, na.rm = TRUE) / nrow(f_v) * 100)
                                     ))
   )
   
