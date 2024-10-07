@@ -111,14 +111,18 @@ list(
                                roads = roads,
                                year = years, # `years` in this case referes to the `years` column in `fvl_years` df
                                ))
+    # TODO: % age class around each den
+    # TODO: road density around each den
     ),
   # Combine all the fruits of our labor into one df!
   tar_combine(forestry_verifications_full,
               mapped[[2]],
               command = dplyr::bind_rows(!!!.x)),
   # Data QC
-  # Compare forestry verifications to legacy verifications
-  # and raw data
-  tar_target(f_v, compare_forestry_verifications(orig_data = f, verification_results = forestry_verifications_full)),
-  tar_target(f_v_summary, summarize_verifications(f_v))
+  # Non-forestry column QC checks
+  tar_target(nonforest_qc, verify_bears(f)),
+  # Compare forestry verifications to legacy verifications and raw data
+  tar_target(forest_qc, compare_forestry_verifications(orig_data = f, verification_results = forestry_verifications_full)),
+  tar_target(forest_qc_summary, summarize_verifications(f_v = forest_qc))
+  # TODO: fxns to rank dens in order of manual checking priority
 )

@@ -19,6 +19,8 @@ f_raw|stem|f24b68c14756cab0|a6669e4bbb2bedf9|c4dccd6079c3374e|1087686815||t20000
 f_v|stem|c96f0a62bd19bdbf|2f5b6244a30d1834|527ca91445f01e56|-1297564563||t20003.7622507363s|462d3b8b42b92b11|14830|qs|local|vector|||0.02||
 f_v_summary|stem|533efd9dcaca2a7c|a58faef08f617f95|33d91faee3d1f160|-53016796||t20003.7631964591s|dcb6f4f9bcb93dc6|186|qs|local|vector|||0.02||
 fetch_bears|function|e9035e8d79fa87ee|||||||||||||||
+forest_qc|stem|c96f0a62bd19bdbf|2f5b6244a30d1834|527ca91445f01e56|1962084585||t20003.8492679633s|462d3b8b42b92b11|14830|qs|local|vector|||0.02||
+forest_qc_summary|stem|533efd9dcaca2a7c|dcdce0639054965e|ff92962d1cefc116|1764024511||t20003.849269086s|dcb6f4f9bcb93dc6|186|qs|local|vector|||0||
 forestry_verification_2014|stem|d6df66979c4258d4|b71b0f5df3352a26|4037d003cf110f6f|1517320127||t20000.9540238714s|afd7f87dad3f6f11|195|qs|local|vector|||8.81||
 forestry_verification_2015|stem|5b0d75d3788c859a|04df0d131d7753e4|3f55dc87108be744|-368769553||t20000.9541580679s|d4e1dc8172cd9f87|229|qs|local|vector|||10.33||
 forestry_verification_2016|stem|06fcc54bbdfc06ea|209859e184a33c6e|302611401eb9ee41|1786902305||t20000.9545898798s|1f1373a8740e7992|584|qs|local|vector|||35.63||
@@ -53,6 +55,7 @@ mapped|object|c58c41f3c05cac15|||||||||||||||
 merge_bcgw_lyrs|function|362e497bdd6cf26f|||||||||||||||
 merge_forestry_verifications|function|e741170c32407872|||||||||||||||
 merge_vri|function|280cd1baa5838467|||||||||||||||
+nonforest_qc|stem|bf4bf43fe6f57d47|e3236630341173b6|3e15a6f42321d315|1324637653||t20003.8492662397s|762c712d6b65519e|8670|qs|local|vector|||0.14||
 p|stem|491aa05d17757e80|26a836c16ef68835|021d9051c8af9227|1169531534||t20000.6564479248s|3493322e04bf60c9|26640|qs|local|vector|||0.13||
 p_raw|stem|9213bd1bac8d804a|c95ab6ba9031d74a|c4dccd6079c3374e|1110398273||t20000.6564299838s|ef609f1f55e2f9a6|26652|qs|local|vector|||0.59||
 prct_age_class_buffer|function|622762efa50fb5db|||||||||||||||
@@ -79,6 +82,7 @@ test_poly|stem|efb5bb480e0abc12|8e2e35e133a37665|897558516c7220d9|-824481042||t1
 test_poly2|stem|bbdac923b613c2ad|8e2e35e133a37665|897558516c7220d9|103921742||t19992.9316516357s|e7549b582959d4d7|669|rds|local|vector|||2.23||
 to_esri_json|function|1fc6d32feebba37a|||||||||||||||
 token|object|548858f7b091da78|||||||||||||||
+verify_bears|function|a81aaaa106951f13|||||||||||||||
 verify_forestry|function|f72f0066d12dbbe9|||||||||||||||
 vi_vri|stem|f69ee81211f22d87|d87c531a3622ced3|b581e993cd2cd253|-575454236||t19993.0646251466s|b237eb8170bfa1f1|210231457|qs|local|vector|||4405.72||
 vri|stem|4609c00e3b7d056d|7fda74a52811f48d|663f49e196853396|-1341468610||t20000.7440046622s|eb68840d007d82d2|379056907|qs|local|vector|||17.86||
