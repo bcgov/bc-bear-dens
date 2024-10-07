@@ -474,3 +474,97 @@ verify_forestry <- function(feature, fvl, roads, year, date_col = "date_inspecte
   return(out)
 }
 
+
+# Compare forestry verification results to raw data,
+# provided those two datasets are supplied
+compare_forestry_verifications <- function(orig_data,
+                                           verification_results) {
+  # Pare down to bare (hah) minimum number of columns needed, 
+  # so inspecting the results is a bit easier
+  orig_data <- orig_data[,c("sample_id", "proportion_forested_field", "proportion_forested",
+                            "distance_less40yr_forest_field", "v_distance_less40yr_forest",
+                            "distance_grtr40yr_forest_field", "v_distance_grtr40year_forest",
+                            "distance_nearest_road", "v_distance_nearest_road")]
+  # Rename cols - orig_data
+  names(orig_data) <- c("sample_id", "raw_prop_forest_60m", "v_prop_forest_60m",
+                        "raw_dist_lt40", "v_dist_lt40",
+                        "raw_dist_gt40", "v_dist_gt40",
+                        "raw_dist_road", "v_dist_road")
+  # Rename cols - verification_results
+  names(verification_results) <- paste0("new_", names(verification_results))
+  # Merge
+  f_v <- merge(orig_data, verification_results, by.x = "sample_id", by.y = "new_sample_id", all = TRUE)
+  
+  ## DIFFERENCE BTWN LEGACY VERIFICATIONS AND NEW VERIFICATIONS ##
+  
+  # > Proportion forested 60m
+  # First round to nearest whole number
+  f_v$new_prop_forest_60m <- round(f_v$new_prop_forest_60m * 100)
+  # Take absolute difference
+  f_v$prop_forest_60m_VDIFF <- abs(f_v$v_prop_forest_60m - f_v$new_prop_forest_60m)
+  
+  # > Distance to <40yo forest
+  f_v$new_dist_lt40 <- round(f_v$new_dist_lt40)
+  f_v$dist_lt40_VDIFF <- abs(f_v$v_dist_lt40 - f_v$new_dist_lt40)
+  
+  # > Distance to >40yo forest
+  f_v$new_dist_gt40 <- round(f_v$new_dist_gt40)
+  f_v$dist_gt40_VDIFF <- abs(f_v$v_dist_gt40 - f_v$new_dist_gt40)
+  
+  # > Distance to nearest_road
+  f_v$new_dist_road <- round(f_v$new_dist_road)
+  f_v$dist_road_VDIFF <- abs(f_v$v_dist_road - f_v$new_dist_road)
+  
+  
+  ## DIFFERENCE BTWN RAW VALUES AND NEW VERIFICATIONS ##
+  
+  # > Proportion forested 60m
+  f_v$prop_forest_60m_RAWDIFF <- abs(f_v$raw_prop_forest_60m - f_v$new_prop_forest_60m)
+  
+  # > Distance to <40yo forest
+  f_v$dist_lt40_RAWDIFF <- abs(f_v$raw_dist_lt40 - f_v$new_dist_lt40)
+  
+  # > Distance to >40yo forest
+  f_v$dist_gt40_RAWDIFF <- abs(f_v$raw_dist_gt40 - f_v$new_dist_gt40)
+  
+  # > Distance to nearest_road
+  f_v$dist_road_RAWDIFF <- abs(f_v$raw_dist_road - f_v$new_dist_road)
+  
+  ## CLEAN OUTPUT ##
+  f_v <- f_v[,c("sample_id", 
+                "raw_prop_forest_60m", "v_prop_forest_60m", "new_prop_forest_60m", "prop_forest_60m_VDIFF", "prop_forest_60m_RAWDIFF",
+                "raw_dist_lt40", "v_dist_lt40", "new_dist_lt40", "dist_lt40_VDIFF", "dist_lt40_RAWDIFF",
+                "raw_dist_gt40", "v_dist_gt40", "new_dist_gt40", "dist_gt40_VDIFF", "dist_gt40_RAWDIFF",
+                "raw_dist_road", "v_dist_road", "new_dist_road", "dist_road_VDIFF", "dist_road_RAWDIFF")]
+  
+  return(f_v)
+}
+  
+
+# Summarize forestry verification comparison results
+summarize_verifications <- function(f_v) {
+  # Check how many fail the 10m or 30% difference cutoff...
+  # Compare vs previous verifications
+  out <- 
+    data.frame(metric = c("prop_forest_60m",
+                          "dist_lt40",
+                          "dist_gt40",
+                          "dist_road"),
+               prct_legacy_verif_overlap = c(round(100 - nrow(f_v[which(f_v$prop_forest_60m_VDIFF >= 30),]) / nrow(f_v) * 100),
+                                       round(100 - nrow(f_v[which(f_v$dist_lt40_VDIFF >= 10 | (f_v$dist_lt40_VDIFF/f_v$v_dist_lt40) >= 0.3),]) / nrow(f_v) * 100),
+                                       round(100 - nrow(f_v[which(f_v$dist_gt40_VDIFF >= 10 | (f_v$dist_gt40_VDIFF/f_v$v_dist_gt40) >= 0.3),]) / nrow(f_v) * 100),
+                                       round(100 - nrow(f_v[which(f_v$dist_road_VDIFF >= 10 | (f_v$dist_road_VDIFF/f_v$v_dist_road) >= 0.3),]) / nrow(f_v) * 100)
+                                       ))
+  
+  # Compare vs raw data
+  out <- cbind(
+    out,
+    data.frame(prct_raw_overlap = c(round(100 - nrow(f_v[which(f_v$prop_forest_60m_RAWDIFF >= 30),]) / nrow(f_v) * 100),
+                                    round(100 - nrow(f_v[which(f_v$dist_gt40_RAWDIFF >= 10 | (f_v$dist_gt40_RAWDIFF/f_v$raw_dist_gt40) >= 0.3),]) / nrow(f_v) * 100),
+                                    round(100 - nrow(f_v[which(f_v$dist_gt40_RAWDIFF >= 10 | (f_v$dist_gt40_RAWDIFF/f_v$raw_dist_gt40) >= 0.3),]) / nrow(f_v) * 100),
+                                    round(100 - nrow(f_v[which(f_v$dist_road_RAWDIFF >= 10 | (f_v$dist_road_RAWDIFF/f_v$raw_dist_road) >= 0.3),]) / nrow(f_v) * 100)
+                                    ))
+  )
+  
+  return(out)
+}

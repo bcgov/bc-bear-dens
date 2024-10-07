@@ -98,11 +98,13 @@ list(
   # a better fit here. 
   mapped <- tar_map(
     values = fvl_years, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
+    # Create FVLs for each year
     tar_target(FVL, 
                create_fvl(den_year = years, # `years` in this case referes to the `years` column in `fvl_years` df
                           vri = vri,
                           depletions = deps)
                ),
+    # Run forestry verification algorithms (% forested 60m, dist <40yo forest, dist >40yo forest, dist road) for each year
     tar_target(forestry_verification,
                verify_forestry(feature = f_full,
                                fvl = FVL, # referring to the target `FVL` created in the previous step
@@ -113,5 +115,10 @@ list(
   # Combine all the fruits of our labor into one df!
   tar_combine(forestry_verifications_full,
               mapped[[2]],
-              command = dplyr::bind_rows(!!!.x))
+              command = dplyr::bind_rows(!!!.x)),
+  # Data QC
+  # Compare forestry verifications to legacy verifications
+  # and raw data
+  tar_target(f_v, compare_forestry_verifications(orig_data = f, verification_results = forestry_verifications_full)),
+  tar_target(f_v_summary, summarize_verifications(f_v))
 )
