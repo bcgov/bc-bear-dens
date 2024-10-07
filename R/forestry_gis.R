@@ -481,12 +481,13 @@ compare_forestry_verifications <- function(orig_data,
                                            verification_results) {
   # Pare down to bare (hah) minimum number of columns needed, 
   # so inspecting the results is a bit easier
-  orig_data <- orig_data[,c("sample_id", "proportion_forested_field", "proportion_forested",
+  orig_data <- orig_data[,c("den_id", "sample_id", 
+                            "proportion_forested_field", "proportion_forested",
                             "distance_less40yr_forest_field", "v_distance_less40yr_forest",
                             "distance_grtr40yr_forest_field", "v_distance_grtr40year_forest",
                             "distance_nearest_road", "v_distance_nearest_road")]
   # Rename cols - orig_data
-  names(orig_data) <- c("sample_id", "raw_prop_forest_60m", "v_prop_forest_60m",
+  names(orig_data) <- c("den_id", "sample_id", "raw_prop_forest_60m", "v_prop_forest_60m",
                         "raw_dist_lt40", "v_dist_lt40",
                         "raw_dist_gt40", "v_dist_gt40",
                         "raw_dist_road", "v_dist_road")
@@ -545,10 +546,10 @@ compare_forestry_verifications <- function(orig_data,
   f_v$flag_raw_dist_lt40 <- f_v$dist_gt40_RAWDIFF >= 10 | (f_v$dist_gt40_RAWDIFF/f_v$raw_dist_gt40) >= 0.3
   f_v$flag_raw_dist_gt40 <- f_v$dist_gt40_RAWDIFF >= 10 | (f_v$dist_gt40_RAWDIFF/f_v$raw_dist_gt40) >= 0.3
   f_v$flag_raw_dist_road <- f_v$dist_road_RAWDIFF >= 10 | (f_v$dist_road_RAWDIFF/f_v$raw_dist_road) >= 0.3
-
+  
   
   ## CLEAN OUTPUT ##
-  f_v <- f_v[,c("sample_id", 
+  f_v <- f_v[,c("den_id", "sample_id", 
                 "raw_prop_forest_60m", "v_prop_forest_60m", "new_prop_forest_60m", "prop_forest_60m_VDIFF", "prop_forest_60m_RAWDIFF",
                 "flag_legacy_prop_forest_60m", "flag_raw_prop_forest_60m",
                 "raw_dist_lt40", "v_dist_lt40", "new_dist_lt40", "dist_lt40_VDIFF", "dist_lt40_RAWDIFF",
@@ -588,4 +589,26 @@ summarize_verifications <- function(f_v) {
   )
   
   return(out)
+}
+
+
+# Rank den_ids in order of priority for checking and fixing manually
+prioritize_den_checks <- function(f_v) {
+  # Count the number of flags
+  f_v$n_legacy_flags <- rowSums(f_v[, grep("flag_legacy", names(f_v))], na.rm = TRUE)
+  f_v$n_raw_flags <- rowSums(f_v[, grep("flag_raw", names(f_v))], na.rm = TRUE)
+  f_v$n_flags <- rowSums(f_v[, grep("^flag", names(f_v))], na.rm = TRUE)
+  
+  out <- aggregate(n_flags ~ den_id, f_v, FUN = "sum") |> 
+    dplyr::filter(n_flags > 0) |> 
+    dplyr::arrange(desc(n_flags))
+  
+  out <- out |> 
+    dplyr::mutate(priority = dplyr::case_when(n_flags < 6 ~ "Low",
+                                              n_flags >= 6 & n_flags < 15 ~ "Medium",
+                                              n_flags >= 15 ~ "High",
+                                              TRUE ~ NA))
+  
+  return(out)
+
 }

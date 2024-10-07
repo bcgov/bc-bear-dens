@@ -123,6 +123,6 @@ list(
   tar_target(nonforest_qc, verify_bears(f)),
   # Compare forestry verifications to legacy verifications and raw data
   tar_target(forest_qc, compare_forestry_verifications(orig_data = f, verification_results = forestry_verifications_full)),
-  tar_target(forest_qc_summary, summarize_verifications(f_v = forest_qc))
-  # TODO: fxns to rank dens in order of manual checking priority
+  tar_target(forest_qc_summary, summarize_verifications(f_v = forest_qc)),
+  tar_target(den_fix_priority, prioritize_den_checks(f_v = forest_qc))
 )
