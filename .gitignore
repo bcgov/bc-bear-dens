@@ -54,3 +54,4 @@ temp/
 # Large GIS files, except regions
 GIS/*
 !GIS/regions_wkt.csv
+*.zip
