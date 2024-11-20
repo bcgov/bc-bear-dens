@@ -96,8 +96,17 @@ clean_bears <- function(df) {
 
 # Perform non-forestry verification of the field visits table
 # and output a table of flagged dens/sample ids
-verify_bears <- function(f) {
-  # Trim down to verification columns of interest
+verify_bears <- function(dens, f) {
+  # Trim dens down to verification columns of interest
+  dens <- dplyr::select(dens, den_id, den_state)
+  
+  # Den ID is unique
+  dens$flag_den_id_duplicated <- dens$den_id %in% dens[["den_id"]][duplicated(dens$den_id)]
+  
+  # Den status is not NULL
+  dens$flag_den_status_null <- is.na(dens$den_state)
+  
+  # Trim field visits down to verification columns of interest
   f <- dplyr::select(f,
                      # metadata
                      "objectid", "den_id", "sample_id", "date_inspected", "surveyor", "organization", 
@@ -128,6 +137,9 @@ verify_bears <- function(f) {
   
   # Arrange by den + date
   f <- f[order(f$den_id, f$date_inspected),]
+  
+  # Merge with dens
+  f <- merge(f, dens, by = "den_id", all = TRUE)
   
   # FLAGS
   # Now actually flag the bad records. 

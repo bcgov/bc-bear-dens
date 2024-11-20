@@ -179,6 +179,8 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
   stopifnot("`feature` must be in the same CRS as `fvl`." = sf::st_crs(feature) == sf::st_crs(fvl))
   
   # Assume each row is unique feature
+  # This is necessary to do bc some dens/sample ids are duplicated, so if 
+  # you try to group data by den/sample_id, you double the areas.
   feature$id_col <- 1:nrow(feature)
   
   circle <- sf::st_buffer(feature, dist = m)
@@ -236,6 +238,7 @@ st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected"
   
   if (filter_by_date) {
     stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = nrow(feature) == 1)
+    # Only road SECTIONS has these three columns
     sql_query <- paste0("SELECT * FROM roads WHERE (award_date <= '", 
                     feature[[date_col]], 
                     "' OR award_date IS NULL) AND (retirement_date >= '", 
@@ -261,7 +264,10 @@ st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected"
 #' 
 #' This function requires both the VRI layer and the depletions layer
 #' as inputs to accurately calculate age class forest cover around a 
-#' den for a given year.
+#' den for a given year. If the verification is for a year prior to a
+#' cutblock being taken out, the function will take the average age of
+#' all forest stands in the radius and assign that average value as the
+#' age of the stand prior to being cut.
 #'
 #' @param feature Point feature (e.g., den)
 #' @param buffer Buffer size around point feature, in meters (default 1500 m)
@@ -274,7 +280,7 @@ st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected"
 #'
 #' @return
 #' @export
-prct_age_class_buffer <- function(feature, buffer = 1500, feature_date_col = "date_inspected",
+st_proportion_age_class <- function(feature, buffer = 1500, feature_date_col = "date_inspected",
                                   vri, vri_year_col = "projected_date", vri_age_col = "proj_age_1",
                                   depletions, depletions_year_col = "depletion_year") {
   # Data health checks
@@ -286,9 +292,16 @@ prct_age_class_buffer <- function(feature, buffer = 1500, feature_date_col = "da
   stopifnot("`depletions` must be a sf class MULTIPOLYGON or POLYGON geometry." = any(sf::st_geometry_type(depletions) %in% c('MULTIPOLYGON', 'POLYGON')))
   stopifnot("Your VRI layer and depletions layer are a different CRS." = sf::st_crs(vri) == sf::st_crs(depletions))
   
+  # Assume each row is a unique feature
+  # This is necessary to do bc some dens/sample ids are duplicated, so if 
+  # you try to group data by den/sample_id, you double the areas.
+  feature$id_col <- 1:nrow(feature)
+  
   # Extract feature year, vri year
   f1_year <- unique(lubridate::year(feature[[feature_date_col]]))
   vri_year <- unique(lubridate::year(vri[[vri_year_col]]))
+  
+  stopifnot("Can only do proportion forested calcs for one year at a time." = length(f1_year) == 1)
   
   # Ensure name of the geometry column is the same for all features
   sf::st_geometry(feature) <- "geom"
@@ -297,23 +310,32 @@ prct_age_class_buffer <- function(feature, buffer = 1500, feature_date_col = "da
   
   # Buffer point feature
   f1 <- sf::st_buffer(feature, buffer)
-  # Drop any non-geometry cols, as they may cause errors down the line
-  f1 <- sf::st_geometry(f1)
+  # Drop any data cols, as they may cause errors down the line
+  f1 <- f1[,c("id_col", "sample_id", "geom")]
+  #f1 <- sf::st_geometry(f1)
   
   # Intersect f1 with VRI
   f1_vri <- suppressWarnings(sf::st_intersection(vri, f1))
+  # Calculate area of each stand 
+  f1_vri$area <- sf::st_area(f1_vri)
+  # Calculate age of each stand in the year the den was visited
   f1_vri$age <- f1_vri[[vri_age_col]] - (vri_year - f1_year) # subtract the age gap btwn vri year and den year - that's how many years older the VRI dataset is than the den visit
-  f1_vri <- f1_vri[which(f1_vri$age > 0),]
+  # Assign mean forest stand age to "negative" aged stands
+  w_mean_age <- weighted.mean(f1_vri[["age"]][f1_vri$age > 0], w = units::drop_units(f1_vri[["area"]][f1_vri$age > 0]))
+  f1_vri[["age"]][f1_vri$age < 0] <- w_mean_age
   # Intersect f1 with depletions
   f1_deps <- suppressWarnings(sf::st_intersection(depletions, f1))
   f1_deps$age <- f1_year - f1_deps[[depletions_year_col]]
+  # Remove negative depletion years - these hadn't been cut yet at the time of den visit year
   f1_deps <- f1_deps[which(f1_deps$age > 0),]
+  
   # Combine the two
   # Very important to st_combine the second feature first, otherwise you
   # get bizarre results. https://github.com/r-spatial/sf/issues/770
   f1_1 <- suppressWarnings(sf::st_difference(f1_vri, sf::st_make_valid(sf::st_combine(f1_deps)))) # cut out deps first
   f1_2 <- suppressWarnings(sf::st_intersection(f1_deps, sf::st_make_valid(sf::st_combine(f1_vri))))
   f1_final <- dplyr::bind_rows(f1_1, f1_2)
+  
   # Categorize into age class
   f1_final <- f1_final |> 
     dplyr::mutate(age_class = dplyr::case_when(
@@ -325,21 +347,65 @@ prct_age_class_buffer <- function(feature, buffer = 1500, feature_date_col = "da
       age >= 101 & age < 121 ~ 6,
       age >= 121 & age < 141 ~ 7,
       age >= 141 & age < 251 ~ 8,
-      age >= 251 ~ 9
-    ))
+      age >= 251 ~ 9,
+      TRUE ~ 999 # in cases with negative stand-age, we don't know how old it was prior to being cut...
+    )) |>
+    dplyr::select(id_col, sample_id, age_class, area)
+  
   # Calculate area of each age class
-  f1_final$area <- sf::st_area(f1_final)
-  # Add dummy rows of 0 area so each age class shows up in the final
-  # total
-  dummy <- data.frame(age_class = 1:9, area = 0)
-  dummy$area <- units::set_units(dummy$area, "m2")
+  f1_final$area <- units::drop_units(sf::st_area(f1_final))
+  f1_final <- sf::st_drop_geometry(f1_final)
+  # Add dummy rows of 0 area so each age class shows up in the final total
+  # TODO: FIX THIS!!
+  # expand.grid(id_col = unique(feature$id_col), age_class = 1:9, area = 0) # should be the same thing as below
+  dummy <- data.frame(id_col = rep(feature$id_col, 9),
+                      sample_id = rep(feature$sample_id, 9),
+                      age_class = rep(1:9, each = length(unique(feature$id_col))),
+                      area = 0)
   f1_final <- dplyr::bind_rows(f1_final, dummy)
   # Calculate area by age class
-  out <- aggregate(area ~ age_class, f1_final, FUN = "sum")
-  out$prct_forest_area <- units::drop_units(out$area / sum(out$area)) 
-  out$prct_total_area <- units::drop_units(out$area / sum(sf::st_area(f1)))
-  return(out)
+  out <- aggregate(area ~ id_col + sample_id + age_class, f1_final, FUN = "sum", na.action = na.pass)
   
+  out <- out |> 
+    tidyr::pivot_wider(id_cols = c("id_col", "sample_id"), 
+                       names_from = age_class, 
+                       names_prefix = "age_class_", 
+                       values_from = area, 
+                       values_fn = sum)
+  
+  out$forest_area_m2 <- rowSums(out[,3:11])
+  out$total_area_m2 <- pi * buffer^2
+  
+  # Convert to percentages
+  out$age_class_1 <- round((out$age_class_1 / out$forest_area_m2 * 100), 1)
+  out$age_class_2 <- round((out$age_class_2 / out$forest_area_m2 * 100), 1)
+  out$age_class_3 <- round((out$age_class_3 / out$forest_area_m2 * 100), 1)
+  out$age_class_4 <- round((out$age_class_4 / out$forest_area_m2 * 100), 1)
+  out$age_class_5 <- round((out$age_class_5 / out$forest_area_m2 * 100), 1)
+  out$age_class_6 <- round((out$age_class_6 / out$forest_area_m2 * 100), 1)
+  out$age_class_7 <- round((out$age_class_7 / out$forest_area_m2 * 100), 1)
+  out$age_class_8 <- round((out$age_class_8 / out$forest_area_m2 * 100), 1)
+  out$age_class_9 <- round((out$age_class_9 / out$forest_area_m2 * 100), 1)
+  
+  # Drop id_col and remove and duplicated dens
+  out <- out[,-1]
+  out <- out[!duplicated(out),]
+  
+  # Add back some useful metadata
+  out$year <- f1_year
+  if (nrow(out) == 1) {
+    out$den_id <- stringr::str_split(out$sample_id, "_", 4, simplify = TRUE)[,1:3] |> 
+      paste(collapse = "_")
+  } else {
+    out$den_id <- stringr::str_split(out$sample_id, "_", 4, simplify = TRUE)[,1:3] |>
+      as.data.frame() |>
+      tidyr::unite(.) |>
+      dplyr::pull()
+  }
+  
+  out <- dplyr::select(out, den_id, sample_id, year, dplyr::everything())
+  
+  return(out)
 }
 
 
@@ -355,7 +421,7 @@ prct_age_class_buffer <- function(feature, buffer = 1500, feature_date_col = "da
 #'
 #' @return
 #' @export
-road_density_buffer <- function(feature, feature_buffer = 1500, feature_date_col = "date_inspected",
+st_road_density <- function(feature, feature_buffer = 1500, feature_date_col = "date_inspected",
                                 roads, roads_buffer_col = "buffer", 
                                 filter_by_date = TRUE, 
                                 return_road_area = TRUE) {

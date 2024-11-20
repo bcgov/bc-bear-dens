@@ -100,7 +100,7 @@ list(
     values = fvl_years, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
     # Create FVLs for each year
     tar_target(FVL, 
-               create_fvl(den_year = years, # `years` in this case referes to the `years` column in `fvl_years` df
+               create_fvl(den_year = years, # `years` in this case refers to the `years` column in `fvl_years` df
                           vri = vri,
                           depletions = deps)
                ),
@@ -109,20 +109,32 @@ list(
                verify_forestry(feature = f_full,
                                fvl = FVL, # referring to the target `FVL` created in the previous step
                                roads = roads,
-                               year = years, # `years` in this case referes to the `years` column in `fvl_years` df
-                               ))
-    # TODO: % age class around each den
-    # TODO: road density around each den
+                               year = years, # `years` in this case refers to the `years` column in `fvl_years` df
+                               )),
+    # % age class around each den
+    tar_target(prct_age_class_yearly, 
+               st_proportion_age_class(feature = f_full[lubridate::year(f_full$date_inspected) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
+                                       buffer = 1500,
+                                       vri = vri,
+                                       depletions = deps))
     ),
   # Combine all the fruits of our labor into one df!
   tar_combine(forestry_verifications_full,
               mapped[[2]],
               command = dplyr::bind_rows(!!!.x)),
+  tar_combine(prct_age_class_1.5km, 
+              mapped[[3]],
+              command = dplyr::bind_rows(!!!.x) |> dplyr::arrange(den_id, year)),
+  # TODO: road density around each den
   # Data QC
   # Non-forestry column QC checks
-  tar_target(nonforest_qc, verify_bears(f)),
+  tar_target(nonforest_qc, verify_bears(dens, f)),
   # Compare forestry verifications to legacy verifications and raw data
   tar_target(forest_qc, compare_forestry_verifications(orig_data = f, verification_results = forestry_verifications_full)),
   tar_target(forest_qc_summary, summarize_verifications(f_v = forest_qc)),
   tar_target(den_fix_priority, prioritize_den_checks(f_v = forest_qc))
+  # Summary statistics
+  # TODO: move stats from other script to here
+  # Analysis
+  
 )
