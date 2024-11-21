@@ -110,6 +110,7 @@ list(
                                fvl = FVL, # referring to the target `FVL` created in the previous step
                                roads = roads,
                                year = years, # `years` in this case refers to the `years` column in `fvl_years` df
+                               retirement_buffer = 15, # years buffer to add to road retirement date to still include recently retired, but still driveable, roads in verification checks
                                )),
     # % age class around each den
     tar_target(prct_age_class_yearly, 

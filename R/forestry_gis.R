@@ -219,47 +219,6 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
 }
 
 
-
-#' Distance from point feature to nearest road
-#'
-#' @param feature Point feature (e.g., den)
-#' @param roads Linestring feature containing roads
-#' @param date_col (optional) Column name in `feature` that contains a date to use as the reference year for roads subsetting
-#' @param filter_by_date (boolean) Should the function filter roads by construction date when calculating distance to feature?
-#'
-#' @return
-#' @export
-st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected", filter_by_date = TRUE) {
-  stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
-  stopifnot("`feature` must be a sf class POINT geometry." = all(sf::st_geometry_type(feature) %in% 'POINT'))
-  stopifnot("`roads` must be a sf class geometry." = inherits(roads, "sf"))
-  #stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
-  
-  
-  if (filter_by_date) {
-    stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = nrow(feature) == 1)
-    # Only road SECTIONS has these three columns
-    sql_query <- paste0("SELECT * FROM roads WHERE (award_date <= '", 
-                    feature[[date_col]], 
-                    "' OR award_date IS NULL) AND (retirement_date >= '", 
-                    feature[[date_col]], 
-                    "' OR retirement_date IS NULL OR life_cycle_status_code = 'ACTIVE')")
-    
-    roads <- tidyquery::query(sql = sql_query)
-  }
-  
-  out <- suppressMessages(nngeo::st_nn(feature, roads, returnDist = T, progress = F))
-  
-  if (filter_by_date) {
-    out <- out$dist[[1]][1]
-  } else {
-    out <- unlist(out$dist)
-  }
-  
-  return(out)
-}
-
-
 #' Calculate percent forest cover of each age class around a feature
 #' 
 #' This function requires both the VRI layer and the depletions layer
@@ -281,8 +240,8 @@ st_distance_nearest_road <- function(feature, roads, date_col = "date_inspected"
 #' @return
 #' @export
 st_proportion_age_class <- function(feature, buffer = 1500, feature_date_col = "date_inspected",
-                                  vri, vri_year_col = "projected_date", vri_age_col = "proj_age_1",
-                                  depletions, depletions_year_col = "depletion_year") {
+                                    vri, vri_year_col = "projected_date", vri_age_col = "proj_age_1",
+                                    depletions, depletions_year_col = "depletion_year") {
   # Data health checks
   stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
   stopifnot("`feature` must be a sf class POINT geometry." = sf::st_geometry_type(feature) %in% 'POINT')
@@ -410,6 +369,60 @@ st_proportion_age_class <- function(feature, buffer = 1500, feature_date_col = "
 
 
 
+query_roads <- function(den_date, retirement_buffer) {
+  den_date <- as.Date(den_date)
+  q <- paste0("SELECT * FROM roads WHERE (award_date <= '", 
+         den_date, 
+         "' OR award_date IS NULL) AND (retirement_date <= '", 
+         den_date + lubridate::years(retirement_buffer), 
+         "' OR retirement_date IS NULL OR life_cycle_status_code = 'ACTIVE')")
+  return(q)
+}
+
+
+#' Distance from point feature to nearest road
+#'
+#' @param feature Point feature (e.g., den)
+#' @param roads Linestring feature containing roads
+#' @param date_col (optional) Column name in `feature` that contains a date to use as the reference year for roads subsetting
+#' @param filter_by_date (boolean) Should the function filter roads by construction date when calculating distance to feature?
+#' @param retirement_buffer Years by which retirement date should be pushed back to still include in the roads filter.
+#'
+#' @return
+#' @export
+st_distance_nearest_road <- function(feature, roads, 
+                                     date_col = "date_inspected", 
+                                     filter_by_date = TRUE,
+                                     retirement_buffer) {
+  stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
+  stopifnot("`feature` must be a sf class POINT geometry." = all(sf::st_geometry_type(feature) %in% 'POINT'))
+  stopifnot("`roads` must be a sf class geometry." = inherits(roads, "sf"))
+  #stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
+  
+  
+  if (filter_by_date) {
+    stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = nrow(feature) == 1)
+    # Only road SECTIONS has these three columns
+    sql_query <- query_roads(den_date = feature[[date_col]],
+                             retirement_buffer = retirement_buffer)
+    roads <- tidyquery::query(sql = sql_query)
+  }
+  
+  out <- suppressMessages(nngeo::st_nn(feature, roads, returnDist = T, progress = F))
+  
+  if (filter_by_date) {
+    out <- out$dist[[1]][1]
+  } else {
+    out <- unlist(out$dist)
+  }
+  
+  return(out)
+}
+
+
+
+
+
 #' Calculate road density (in m2) around a feature
 #'
 #' @param feature Point feature (e.g., den)
@@ -421,7 +434,7 @@ st_proportion_age_class <- function(feature, buffer = 1500, feature_date_col = "
 #'
 #' @return
 #' @export
-st_road_density <- function(feature, feature_buffer = 1500, feature_date_col = "date_inspected",
+st_road_density <- function(feature, feature_buffer = 1500, date_col = "date_inspected",
                                 roads, roads_buffer_col = "buffer", 
                                 filter_by_date = TRUE, 
                                 return_road_area = TRUE) {
@@ -434,7 +447,9 @@ st_road_density <- function(feature, feature_buffer = 1500, feature_date_col = "
   
   if (filter_by_date) {
     stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = nrow(feature) == 1)
-    roads <- roads[which((roads$award_date <= feature[[feature_date_col]] | is.na(roads$award_date)) & (roads$retirement_date >= feature[[feature_date_col]] | is.na(roads$retirement_date) | roads$life_cycle_status_code == 'ACTIVE')),]
+    sql_query <- query_roads(den_date = feature[[date_col]],
+                             retirement_buffer = retirement_buffer)
+    roads <- tidyquery::query(sql = sql_query)
   }
   
   # Select roads that touch feature
@@ -499,7 +514,10 @@ load_depletions <- function(regions,
 
 # Runs all 4 forestry verification scripts in one go and
 # outputs a dataframe of results.
-verify_forestry <- function(feature, fvl, roads, year, date_col = "date_inspected", id_col = "sample_id") {
+verify_forestry <- function(feature, fvl, roads, 
+                            year, retirement_buffer,
+                            date_col = "date_inspected", 
+                            id_col = "sample_id") {
   # Params check
   # Wishlist
   # TODO: handle year params better in this function/overall targets pipeline....
@@ -524,11 +542,8 @@ verify_forestry <- function(feature, fvl, roads, year, date_col = "date_inspecte
   out_gt40 <- unlist(suppressMessages(nngeo::st_nn(feature, fvl[fvl$forested == 'Forested',], returnDist = T, progress = F)$dist))
   # 04 Distance to nearest road
   message("Calculating distance to nearest road...")
-  sql_query <- paste0("SELECT * FROM roads WHERE (award_date <= '", 
-                      year, 
-                      "-12-31' OR award_date IS NULL) AND (retirement_date >= '", 
-                      year, 
-                      "-12-31' OR retirement_date IS NULL OR life_cycle_status_code = 'ACTIVE')")
+  sql_query <- query_roads(den_date = paste0(as.character(year), "-12-31"),
+                           retirement_buffer = retirement_buffer)
   roads <- tidyquery::query(sql = sql_query)
   out_dist_road <- st_distance_nearest_road(feature, roads, filter_by_date = FALSE)
   # Combine
