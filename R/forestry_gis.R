@@ -315,8 +315,6 @@ st_proportion_age_class <- function(feature, buffer = 1500, feature_date_col = "
   f1_final$area <- units::drop_units(sf::st_area(f1_final))
   f1_final <- sf::st_drop_geometry(f1_final)
   # Add dummy rows of 0 area so each age class shows up in the final total
-  # TODO: FIX THIS!!
-  # expand.grid(id_col = unique(feature$id_col), age_class = 1:9, area = 0) # should be the same thing as below
   dummy <- data.frame(id_col = rep(feature$id_col, 9),
                       sample_id = rep(feature$sample_id, 9),
                       age_class = rep(1:9, each = length(unique(feature$id_col))),
@@ -386,7 +384,7 @@ query_roads <- function(den_date, retirement_buffer) {
 #' @param roads Linestring feature containing roads
 #' @param date_col (optional) Column name in `feature` that contains a date to use as the reference year for roads subsetting
 #' @param filter_by_date (boolean) Should the function filter roads by construction date when calculating distance to feature?
-#' @param retirement_buffer Years by which retirement date should be pushed back to still include in the roads filter.
+#' @param retirement_buffer Number of years by retirement date should be pushed back to still include in the roads filter. E.g., to include roads that were retired in 2013 in the calculation for a bear den that was visited in 2018, set `retirement_buffer = 5`.
 #'
 #' @return
 #' @export
@@ -430,41 +428,85 @@ st_distance_nearest_road <- function(feature, roads,
 #' @param roads Linestring feature containing roads
 #' @param roads_buffer_col Column name in `roads` that contains road buffering distance (e.g., meters buffer for highways vs roads)
 #' @param feaure_date_col (optional) Column name in `feature` that contains a date to use as the reference year for roads subsetting
-#' @param filter_by_date (boolean) Should the function filter roads by construction date when calculating distance to feature?
+#' @param filter_by_date (boolean) Should the function filter roads by construction date when calculating distance to feature? Default `TRUE`.
+#' @param filter_by_year (boolean) If `filter_by_date` is `FALSE`, should the feature(s) instead be filtered by construction/retirement year, rather than a specific date? Default `FALSE`.
+#' @param retirement_buffer Number of years by retirement date should be pushed back to still include in the roads filter. E.g., to include roads that were retired in 2013 in the calculation for a bear den that was visited in 2018, set `retirement_buffer = 5`.
+#' @param return_road_area (boolean) Should the function return road areas or simply density of roads as a percentage? Default `TRUE`.
 #'
 #' @return
 #' @export
-st_road_density <- function(feature, feature_buffer = 1500, date_col = "date_inspected",
-                                roads, roads_buffer_col = "buffer", 
-                                filter_by_date = TRUE, 
-                                return_road_area = TRUE) {
+st_road_density <- function(feature, 
+                            feature_buffer = 1500, 
+                            date_col = "date_inspected",
+                            roads, 
+                            roads_buffer_col = "buffer", 
+                            filter_by_date = TRUE, 
+                            filter_by_year = FALSE,
+                            retirement_buffer,
+                            return_road_area = TRUE) {
   # Data health checks
   stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
   stopifnot("`feature` must be a sf class POINT geometry." = all(sf::st_geometry_type(feature) %in% 'POINT'))
   stopifnot("`roads` must be a sf class geometry." = inherits(roads, "sf"))
-  stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
+  #stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
   stopifnot("`feature` must be in the same CRS as `roads`." = sf::st_crs(feature) == sf::st_crs(roads))
   
+  # Remove ferry routes
+  roads <- roads[which(roads$fcode != "AQ10800000"),]
+  
+  # Assign road buffer distances
+  # Highways vs. mainline roads vs. forestry sections will get 
+  # a different amount of buffering.
+  hwy <- c('DA25100190',
+           'DA25100200',
+           'DA25100210',
+           'DA25100220',
+           'DA25100350',
+           'DA25100370',
+           'DA25100380',
+           'DA25100390')
+  
+  roads <- roads |> 
+    dplyr::mutate(buffer = dplyr::case_when(roads$fcode %in% hwy ~ 15,
+                                              # For now, it's complex and time consuming to pull mainline roads vs forest roads
+                                              #roads$file_type_description %in% "Forest Service Road" ~ 5,
+                                              TRUE ~ 7.5))
+  
   if (filter_by_date) {
-    stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = nrow(feature) == 1)
+    stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = length(feature) == 1)
     sql_query <- query_roads(den_date = feature[[date_col]],
+                             retirement_buffer = retirement_buffer)
+    roads <- tidyquery::query(sql = sql_query)
+  } else if (filter_by_year) { 
+    # TODO: handle year vs day filter a bit better, somehow. It's confusing and error prone as-is.
+    f_year <- unique(lubridate::year(feature[[date_col]]))
+    stopifnot("Can only evaluate distance to road for one year at a time if `filter_by_year == TRUE`" = length(f_year) == 1)
+    sql_query <- query_roads(den_date = paste0(as.character(f_year), "-12-31"),
                              retirement_buffer = retirement_buffer)
     roads <- tidyquery::query(sql = sql_query)
   }
   
   # Select roads that touch feature
-  roads <- roads[sf::st_is_within_distance(roads, feature, dist = feature_buffer, sparse = F),]
+  touches <- sf::st_is_within_distance(roads, feature, dist = feature_buffer, sparse = F)
+  if (ncol(touches) > 1) {
+    touches <- rowSums(touches)
+    touches <- ifelse(touches == 0, FALSE, TRUE)
+  }
+  roads <- roads[touches,]
   
   # Buffer and union roads according to buffer col
   roads <- sf::st_buffer(roads, dist = roads[[roads_buffer_col]])
   roads <- sf::st_union(roads)
   
   # Buffer feature
-  # If we're ignoring the road dates, we can just use the dens df
   feature <- sf::st_buffer(feature, feature_buffer)
   
   # Intersect buffered roads with feature
   intxn <- suppressWarnings(sf::st_intersection(feature, roads))
+  
+  # Filter down to relevant cols
+  intxn$year <- f_year
+  intxn <- intxn[,c("den_id", "sample_id", "year")]
   
   # Calculate road area
   intxn$road_area <- sf::st_area(intxn)
@@ -472,17 +514,16 @@ st_road_density <- function(feature, feature_buffer = 1500, date_col = "date_ins
   # Replace NA road areas with zero
   intxn$road_area <- ifelse(is.na(intxn$road_area), 0, intxn$road_area)
   
-  # Calculate density
-  out <- intxn$road_area / (pi * (feature_buffer^2))
-  
   # If user wants road area returned as well
   if (return_road_area) {
-    out <- list(out)
-    out[[2]] <- intxn$road_area
-    out[[3]] <- (pi * (feature_buffer^2))
-    names(out) <- c("road_density_m2", "road_area", "total_area")
-    out$road_density <- ifelse(length(out$road_density) == 0, 0, out$road_density)
-    out$road_area <- ifelse(length(out$road_area) == 0, 0, out$road_area)
+    out <- intxn
+    out$total_area <- pi * (feature_buffer^2)
+    out$road_density_m2 <- out$road_area / (pi * (feature_buffer^2))
+    out <- sf::st_drop_geometry(out)
+  } else {
+    # Else just spit out the density values as a vector
+    # Calculate density
+    out <- intxn$road_area / (pi * (feature_buffer^2))
   }
   
   return(out)
@@ -497,6 +538,8 @@ st_road_density <- function(feature, feature_buffer = 1500, date_col = "date_ins
 merge_bcgw_lyrs <- function(bcgw_list) {
   out <- dplyr::bind_rows(bcgw_list)
   out <- janitor::clean_names(out)
+  # TODO: re-run pipeline overnight with this change
+  #sf::st_geometry(out) <- "geometry" 
   return(out)
 }
 
@@ -527,9 +570,6 @@ verify_forestry <- function(feature, fvl, roads,
   if(nrow(feature) == 0) stop("There are no features in the year ", year)
   # Check if roads supplied
   if(missing(roads)) stop("`roads` is required")
-  # Load the correct FVL target
-  #tgt <- paste0("FVL_", year)
-  #fvl <- tar_read_raw(tgt)
   # Run the verifications
   # 01 Proportion forested within 60m
   message("Calculating proportion forested...")

@@ -60,6 +60,7 @@ tar_source()
 source("temp/token.R")
 
 fvl_years <- data.frame(years = c(2014, 2015, 2016, 2017, 2018, 2020, 2021, 2022, 2023, 2024))
+retirement_buffer <- 5 # how many years after the retirement date should be added to keep forestry road sections in?
 
 # Run tar_make() to execute the pipeline
 list(
@@ -110,14 +111,21 @@ list(
                                fvl = FVL, # referring to the target `FVL` created in the previous step
                                roads = roads,
                                year = years, # `years` in this case refers to the `years` column in `fvl_years` df
-                               retirement_buffer = 15, # years buffer to add to road retirement date to still include recently retired, but still driveable, roads in verification checks
+                               retirement_buffer = retirement_buffer, # years buffer to add to road retirement date to still include recently retired, but still driveable, roads in verification checks
                                )),
     # % age class around each den
     tar_target(prct_age_class_yearly, 
                st_proportion_age_class(feature = f_full[lubridate::year(f_full$date_inspected) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
                                        buffer = 1500,
                                        vri = vri,
-                                       depletions = deps))
+                                       depletions = deps)),
+    # Road density around each den
+    tar_target(road_density_yearly,
+               st_road_density(feature = f_full[lubridate::year(f_full$date_inspected) == years, ],
+                               roads = roads,
+                               filter_by_date = FALSE,
+                               filter_by_year = TRUE,
+                               retirement_buffer = retirement_buffer))
     ),
   # Combine all the fruits of our labor into one df!
   tar_combine(forestry_verifications_full,
@@ -126,7 +134,9 @@ list(
   tar_combine(prct_age_class_1.5km, 
               mapped[[3]],
               command = dplyr::bind_rows(!!!.x) |> dplyr::arrange(den_id, year)),
-  # TODO: road density around each den
+  tar_combine(road_density,
+              mapped[[4]],
+              command = dplyr::bind_rows(!!!.x) |> dplyr::arrange(den_id, year)),
   # Data QC
   # Non-forestry column QC checks
   tar_target(nonforest_qc, verify_bears(dens, f)),
