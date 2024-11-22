@@ -457,17 +457,18 @@ st_road_density <- function(feature,
   # Assign road buffer distances
   # Highways vs. mainline roads vs. forestry sections will get 
   # a different amount of buffering.
-  hwy <- c('DA25100190',
-           'DA25100200',
-           'DA25100210',
-           'DA25100220',
-           'DA25100350',
-           'DA25100370',
-           'DA25100380',
-           'DA25100390')
+  mainline <- c('DA25100190',
+                'DA25100200',
+                'DA25100210',
+                'DA25100220',
+                'DA25100350',
+                'DA25100370',
+                'DA25100380',
+                'DA25100390',
+                'DA25050180')
   
   roads <- roads |> 
-    dplyr::mutate(buffer = dplyr::case_when(roads$fcode %in% hwy ~ 15,
+    dplyr::mutate(buffer = dplyr::case_when(roads$fcode %in% mainline ~ 15,
                                               # For now, it's complex and time consuming to pull mainline roads vs forest roads
                                               #roads$file_type_description %in% "Forest Service Road" ~ 5,
                                               TRUE ~ 7.5))
