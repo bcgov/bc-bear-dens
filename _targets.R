@@ -106,6 +106,7 @@ list(
                           depletions = deps)
                ),
     # Run forestry verification algorithms (% forested 60m, dist <40yo forest, dist >40yo forest, dist road) for each year
+    # TODO: Only run verifications if the geometry changes... otherwise so time consuming to update non-geom data...
     tar_target(forestry_verification,
                verify_forestry(feature = f_full,
                                fvl = FVL, # referring to the target `FVL` created in the previous step
