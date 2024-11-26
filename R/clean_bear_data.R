@@ -158,7 +158,7 @@ verify_bears <- function(dens, f) {
   f$flag_den_id_null <- is.na(f$den_id)
   
   # Den Sample ID is unique
-  f$flag_sample_id_duplicated <- f$sample_id %in% f[["sample_id"]][duplicated(f$sample_id)]
+  f$flag_sample_id_duplicated <- f$sample_id %in% f[["sample_id"]][duplicated(f$sample_id) & !is.na(f$sample_id)]
   
   # Sample ID is NULL
   f$flag_sample_id_null <- is.na(f$sample_id)
