@@ -97,32 +97,34 @@ list(
   # if the underlying VRI and depletion layer is updated.
   # The low number of FVL years means that static branching might be
   # a better fit here. 
+  tar_target(f_geom, f_full |> # Create an object that is JUST sample_id + sf geometry to run the verifications on. Otherwise, this pipeline gets triggered each time there's a simple data change to any of the text columns.
+               dplyr::mutate(year = lubridate::year(date_inspected)) |> 
+               dplyr::select(den_id, sample_id, date_inspected)), 
   mapped <- tar_map(
     values = fvl_years, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
-    # Create FVLs for each year
-    tar_target(FVL, 
+    # Create FVLs for each ayear
+    tar_target(FVL,
                create_fvl(den_year = years, # `years` in this case refers to the `years` column in `fvl_years` df
                           vri = vri,
                           depletions = deps)
                ),
     # Run forestry verification algorithms (% forested 60m, dist <40yo forest, dist >40yo forest, dist road) for each year
-    # TODO: Only run verifications if the geometry changes... otherwise so time consuming to update non-geom data...
     tar_target(forestry_verification,
-               verify_forestry(feature = f_full,
+               verify_forestry(feature = f_geom,
                                fvl = FVL, # referring to the target `FVL` created in the previous step
                                roads = roads,
                                year = years, # `years` in this case refers to the `years` column in `fvl_years` df
                                retirement_buffer = retirement_buffer, # years buffer to add to road retirement date to still include recently retired, but still driveable, roads in verification checks
                                )),
     # % age class around each den
-    tar_target(prct_age_class_yearly, 
-               st_proportion_age_class(feature = f_full[lubridate::year(f_full$date_inspected) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
+    tar_target(prct_age_class_yearly,
+               st_proportion_age_class(feature = f_geom[lubridate::year(f_geom$date_inspected) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
                                        buffer = 1500,
                                        vri = vri,
                                        depletions = deps)),
     # Road density around each den
     tar_target(road_density_yearly,
-               st_road_density(feature = f_full[lubridate::year(f_full$date_inspected) == years, ],
+               st_road_density(feature = f_geom[lubridate::year(f_geom$date_inspected) == years, ],
                                roads = roads,
                                filter_by_date = FALSE,
                                filter_by_year = TRUE,
@@ -132,7 +134,7 @@ list(
   tar_combine(forestry_verifications_full,
               mapped[[2]],
               command = dplyr::bind_rows(!!!.x)),
-  tar_combine(prct_age_class_1.5km, 
+  tar_combine(prct_age_class_1.5km,
               mapped[[3]],
               command = dplyr::bind_rows(!!!.x) |> dplyr::arrange(den_id, year)),
   tar_combine(road_density,
