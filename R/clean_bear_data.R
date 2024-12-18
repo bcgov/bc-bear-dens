@@ -75,6 +75,13 @@ clean_bears <- function(df) {
     # Misc cols cleanup
     df$hair_samples_taken <- gsub("\\bn\\b", "No", df$hair_samples_taken, ignore.case = TRUE)
     
+    # Clean up den_status
+    # Ok, for whatever reason, no matter WHAT the dropdown menu says online, 
+    # LOW_FlorenceCreek_1 den_status stubbornly stays as "Not Not active in last season, but recent use (1-4 Seasons)active in last season, but recent use (1-4 Seasons)"
+    # Fix it.
+    df[["den_status"]][df$den_status == "Not Not active in last season, but recent use (1-4 Seasons)active in last season, but recent use (1-4 Seasons)"] <- "Not active in last season, but recent use (1-4 seasons)"
+    df$den_status <- stringr::str_to_sentence(df$den_status)
+    
   }
   
   if (layer == "potential") {

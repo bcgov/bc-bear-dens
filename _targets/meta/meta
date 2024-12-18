@@ -1,11 +1,16 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
+<<<<<<< HEAD
 backup|stem|d8c35e431ba1c7c9|95e5224d07d99231|ec50cdbc085aea42|1435861339||t20060.9790954257s|d4b2108150986096|730|qs|local|vector|||0.41||
+=======
+backup|stem|4b733c0b9a86965b|95e5224d07d99231|5187b05c5003f640|1435861339||t20075.7181227556s|1810ce67eae8150b|27042|qs|local|vector|||0.19||
+>>>>>>> main
 backup_bears|function|fed6cfd7672513bb|||||||||||||||
 bcgw_set_keys|function|4ef4a1f2aea863a9|||||||||||||||
-clean_bears|function|724b7b456510d20b|||||||||||||||
+clean_bears|function|955aadc2c4deafe2|||||||||||||||
 compare_forestry_verifications|function|097e17f8fd921e3d|||||||||||||||
 connect_bcgw|function|39f9a06252d7f403|||||||||||||||
 create_fvl|function|ceefafc341535af2|||||||||||||||
+<<<<<<< HEAD
 den_fix_priority|stem|c0bcf394afbfd8e4|7d6f23d97a297478|6f649a8c021987df|1032555658||t20053.698242901s|a0bbc8b822b96866|1204|qs|local|vector|||0.01||
 den_years|stem|744dad2a0685a8f0|3fc24f5ebdc4bb81|81a64f797dc81532|559029640||t20053.6586323172s|530f140998b50d1c|112|qs|local|vector|||0||
 dens|stem|3976539e77c54140|cd17d2b24d452c25|ffbccf537d96a4f1|-500175898||t20060.9790842336s|d4b2108150986096|730|qs|local|vector|||0.34||
@@ -14,20 +19,31 @@ deps|stem|1994b0974a1e3f21|7bcb0a27f4662cef|d6595bf119b686cf|1095278719||t19998.
 f|stem|3976539e77c54140|6303500104d024fc|5d07ba1dd238ae81|-20664708||t20060.9790871516s|d4b2108150986096|730|qs|local|vector|||0.05||
 f_full|stem|aba70f58b687e2c4|c0d03fbd004bd6d6|8a11203d818dbdf6|677235733||t20053.6586335904s||207712|qs|local|vector|||0.08||merge on two sf objects not supported
 f_raw|stem|d8c35e431ba1c7c9|a6669e4bbb2bedf9|a946f334d68f6ae8|1087686815||t20060.9790679827s|d4b2108150986096|730|qs|local|vector|||0.5||
+=======
+den_fix_priority|stem|8509692d31a816ce|7d6f23d97a297478|03027448468b9381|1032555658||t20074.8971078369s|0191857fbb6069ce|1203|qs|local|vector|||0.01||
+den_years|stem|744dad2a0685a8f0|3fc24f5ebdc4bb81|ae4d9914b9cdd4d9|559029640||t20075.7410422794s|530f140998b50d1c|112|qs|local|vector|||0||
+dens|stem|3b9801831f1bac10|cd17d2b24d452c25|1b2034b6a6b4c85c|-500175898||t20075.7410259315s|de091c0295df3286|40793|qs|local|vector|||0.24||
+dens_raw|stem|054fe45c5cc3cdb0|65b3b7b2495f30e4|ae0581cfc82926ca|-1423372772||t20075.7180874202s|7e4049c45769a28d|41013|qs|local|vector|||2.8||
+deps|stem|1994b0974a1e3f21|7bcb0a27f4662cef|d6595bf119b686cf|1095278719||t19998.0270005474s|c8258776c4411bdb|62464475|qs|local|vector|||18.83|attribute variables are assumed to be spatially constant throughout all geometries|
+f|stem|8a425df462ae9a2f|6303500104d024fc|873878cfff1d8e65|-20664708||t20075.7410348739s|61593f8563bde982|156536|qs|local|vector|||0.69||
+f_full|stem|721ed126f09330c7|c0d03fbd004bd6d6|2be348d24ba8ddbf|677235733||t20075.7410384705s|df7c365fc6b49e90|207892|qs|local|vector|||0.03||
+f_geom|stem|dcff0e84f6266482|d5014cce5260e730|55e6c4be70ed611f|1031424069||t20075.7410433326s|3c2b86280504c73d|10300|qs|local|vector|||0||
+f_raw|stem|a714111ca14b6c7b|a6669e4bbb2bedf9|ae0581cfc82926ca|1087686815||t20075.7181000921s|04d18685da0abd1c|158314|qs|local|vector|||0.99||
+>>>>>>> main
 fetch_bears|function|e9035e8d79fa87ee|||||||||||||||
-forest_qc|stem|3bda2f28b0cc25fc|2f5b6244a30d1834|97536413107b41fc|1962084585||t20053.6982413963s|acf3d8ead1fbe1c7|16575|qs|local|vector|||0.03||
-forest_qc_summary|stem|605ecc92eab07b50|dcdce0639054965e|354db44301c9718c|1764024511||t20053.6982442783s|1fa23b41a00fb676|188|qs|local|vector|||0||
-forestry_verification_2014|stem|039ca0b3675a0d8f|181926aaace5c5eb|b3201436d5f65baf|1517320127||t20053.6964982716s|afd7f87dad3f6f11|195|qs|local|vector|||16.17||
-forestry_verification_2015|stem|5b0d75d3788c859a|60356ce53d879b70|bac2ed87ac11063c|-368769553||t20053.6967642913s|d4e1dc8172cd9f87|229|qs|local|vector|||20.29||
-forestry_verification_2016|stem|06fcc54bbdfc06ea|8c0a9fad5888ecce|9306caeb087e5aa5|1786902305||t20053.697543351s|1f1373a8740e7992|584|qs|local|vector|||65.25||
-forestry_verification_2017|stem|deaa7762f163350d|d4f9966ddc96dc96|a40d5b58feaa3637|-1760015193||t20053.697911107s|6f5955ab594f49f2|329|qs|local|vector|||29.51||
-forestry_verification_2018|stem|ab7a86ca7989b12b|2470e150e42a6975|99b41697cc3475f6|-2046367689||t20053.6982312543s|0e9d2d7bbe99bbf8|298|qs|local|vector|||25.61||
-forestry_verification_2020|stem|bb158aca522237a6|eb1ab5c6c3bec407|58532111c74de368|20176901||t20053.6677886799s|6bc7c52ca00c1d12|2083|qs|local|vector|||241.7||
-forestry_verification_2021|stem|cdcf299a964eb762|0cf3ce28327bb7fe|ebd3f2c026fb0258|-1199258518||t20053.6714414191s|9307420128d3ed25|2482|qs|local|vector|||312.5||
-forestry_verification_2022|stem|d1e77c4dbdfa27f4|95c151b70da65951|5710487f8225b597|-1877298483||t20053.6774166607s|37fe4d68c41f5193|4207|qs|local|vector|||514.01||
-forestry_verification_2023|stem|0efc931f8e77f2ee|b7cac87ae5ffb843|dd8a10b4f1b1368f|1656727730||t20053.6848186709s|b6f104ae965b1907|4800|qs|local|vector|||637.8||
-forestry_verification_2024|stem|ab595b565c80ce9e|2d30f5298b9532d9|ebc358d46764cbbd|2086755603||t20053.6962773692s|0f1b663dc2dc05e6|5428|qs|local|vector|||984.21||
-forestry_verifications_full|stem|0b6ccd62c1bec7aa|d351239426c098a8|1330ecd208050d1c|-1872342141||t20053.698238452s|bc7440e5671c3d35|12200|qs|local|vector|||0||
+forest_qc|stem|92202a783da6befa|2f5b6244a30d1834|732484efbacd5aec|1962084585||t20075.7410457151s|33382d7e53ef1771|16484|qs|local|vector|||0.04||
+forest_qc_summary|stem|e1caeea71de69a47|dcdce0639054965e|54b489db32e8c748|1764024511||t20074.8971092142s|2cbdbb0ff1663637|187|qs|local|vector|||0.02||
+forestry_verification_2014|stem|039ca0b3675a0d8f|aa7dcb3d86547f90|0712c2e0da649224|1517320127||t20074.896116918s|afd7f87dad3f6f11|195|qs|local|vector|||8.29||
+forestry_verification_2015|stem|5b0d75d3788c859a|7f4fb3df1216b2b0|8807ff5942fba172|-368769553||t20074.8962541933s|d4e1dc8172cd9f87|229|qs|local|vector|||10.2||
+forestry_verification_2016|stem|06fcc54bbdfc06ea|0b5d495c7a224040|97607cbc827e5340|1786902305||t20074.8966814166s|1f1373a8740e7992|584|qs|local|vector|||35.56||
+forestry_verification_2017|stem|deaa7762f163350d|a011ab0dbe333643|808a2e85de6423e3|-1760015193||t20074.8968992317s|6f5955ab594f49f2|329|qs|local|vector|||17.38||
+forestry_verification_2018|stem|ab7a86ca7989b12b|02707f5d578ba4e6|13bbf87c9854c60c|-2046367689||t20074.8970934526s|0e9d2d7bbe99bbf8|298|qs|local|vector|||15.28||
+forestry_verification_2020|stem|60f1c18a8320b596|481187b953ffb82a|ec99b8aca8eba73d|20176901||t20074.879537425s|644d9157c0e3667f|2076|qs|local|vector|||141.47||
+forestry_verification_2021|stem|58f2cf26c1e658ca|00e3b0bc04d8c087|8eb2fb3d8910da60|-1199258518||t20074.8819137761s|e9cf46152a7f085b|2484|qs|local|vector|||203.91||
+forestry_verification_2022|stem|aeb7f4004ee28084|5fa1e6a14dccdfa4|f0072e46b04e5671|-1877298483||t20074.8859089374s|dfe4ab4a80b3740e|4180|qs|local|vector|||343.76||
+forestry_verification_2023|stem|0efc931f8e77f2ee|fea49d79890a52a9|2b4c39a7b3c119b2|1656727730||t20074.8905884091s|b6f104ae965b1907|4800|qs|local|vector|||402.72||
+forestry_verification_2024|stem|23edfc2d67d59f2c|36cf71a0e1c958d5|eb93ade4bd09f9a6|2086755603||t20074.896005153s|66d74bfd6ae1d9e7|5421|qs|local|vector|||466.3||
+forestry_verifications_full|stem|b4d84bbddd05589b|d351239426c098a8|3e0c17c44126edaf|-1872342141||t20074.8971043878s|937362d7e63995e5|12124|qs|local|vector|||0||
 FVL_2014|stem|cf1684ea7fd34b9f|5832edfadc34a499|495744c288f59dcd|2053633910||t19999.7665889649s|5d8d98469139cefd|142377816|qs|local|vector|||2065.94||
 FVL_2015|stem|b66509f33050d379|8b80453e7b09aed5|495744c288f59dcd|1920169089||t19999.7902597113s|233528269ff655d6|143873275|qs|local|vector|||2040.13||
 FVL_2016|stem|3c1109ed0e32bede|fc2f0b87e97bbc8c|495744c288f59dcd|-444821856||t19999.809558654s|f6d3b5be32f33f44|147484390|qs|local|vector|||1661.97||
@@ -45,25 +61,32 @@ hg_vi_roads|stem|981e0576bd807081|6f4d33d3c934af78|4bd1ff7c7787603a|1191910079||
 hg_vri|stem|119d3b07170a89af|087c339ab7404692|474711576b7175dc|2111619987||t19993.0813251502s|f33541928cc98dfa|63557911|qs|local|vector|||1441.09||
 jawg_token|object|977cd5f6ecca09bd|||||||||||||||
 load_depletions|function|3f498bdaf981e12f|||||||||||||||
-mapped|object|24db6c3ca4fb3b56|||||||||||||||
+mapped|object|06d6ee785ee833b2|||||||||||||||
 merge_bcgw_lyrs|function|362e497bdd6cf26f|||||||||||||||
 merge_forestry_verifications|function|e741170c32407872|||||||||||||||
 merge_vri|function|280cd1baa5838467|||||||||||||||
+<<<<<<< HEAD
 nonforest_qc|stem|fb69ec6ae9c5ac89|97627feb921f77ee|48bf787700bfbe77|1324637653||t20053.658636426s|3c2d0046028d2555|8693|qs|local|vector|||0.15||
 p|stem|3976539e77c54140|26a836c16ef68835|600b1ec0fc49bf90|1169531534||t20060.9790984019s|d4b2108150986096|730|qs|local|vector|||0.05||
 p_raw|stem|d8c35e431ba1c7c9|c95ab6ba9031d74a|a946f334d68f6ae8|1110398273||t20060.9790776486s|d4b2108150986096|730|qs|local|vector|||0.55||
 prct_age_class_1.5km|stem|f187571d05a14157|232c4b57baae062b|e1a45265da1a1aee|1639803805||t20053.6979186634s|07fd07c9fce0f2bf|15683|qs|local|vector|||0.02||
+=======
+nonforest_qc|stem|228a92001ba7f7a4|97627feb921f77ee|f86fe1695402d5fa|1324637653||t20075.7410412608s|27a40e4b0f5cff26|8660|qs|local|vector|||0.16||
+p|stem|835dcffbddb89fc9|26a836c16ef68835|8dfe4f53f29b0ca0|1169531534||t20075.7410370727s|f48d3ef378d6a165|27040|qs|local|vector|||0.11||
+p_raw|stem|4b733c0b9a86965b|c95ab6ba9031d74a|ae0581cfc82926ca|1110398273||t20075.7181060665s|1810ce67eae8150b|27042|qs|local|vector|||0.43||
+prct_age_class_1.5km|stem|5b52ca340eb5ca86|232c4b57baae062b|88e511cc6d6ac600|1639803805||t20074.8970994473s|e6f4369ef6f70357|15678|qs|local|vector|||0.01||
+>>>>>>> main
 prct_age_class_buffer|function|622762efa50fb5db|||||||||||||||
-prct_age_class_yearly_2014|stem|18c5cbf08b5c7450|d0a79e585f900392|5956b1b8ca5ad095|572458032||t20053.6616261139s|7c6c464dae2fa2af|271|qs|local|vector|||5.73||
-prct_age_class_yearly_2015|stem|e488ceb9c458e8bc|1230ec64e6bed31d|5956b1b8ca5ad095|-813470218||t20053.6617344397s|f8bff6bda11134a2|346|qs|local|vector|||6.48||
-prct_age_class_yearly_2016|stem|05a10c02a02cdafe|619ba094e693463a|5956b1b8ca5ad095|855319407||t20053.6618731099s|fddda1a11ff3bc84|812|qs|local|vector|||9.13||
-prct_age_class_yearly_2017|stem|aaf27557821c87b6|fc63a42117e33265|5956b1b8ca5ad095|-195181895||t20053.6619852857s|4778a4e877266c92|485|qs|local|vector|||6.66||
-prct_age_class_yearly_2018|stem|b6f655f52cce93c6|06a61ebf61245efe|5956b1b8ca5ad095|1806416318||t20053.6620979339s|c9df0975a66a11d4|433|qs|local|vector|||6.74||
-prct_age_class_yearly_2020|stem|66d2330ce9b00d57|20136dc8b70d2547|5956b1b8ca5ad095|-2115275922||t20053.6588417155s|9847779682201bb9|2559|qs|local|vector|||14.86||
-prct_age_class_yearly_2021|stem|c3d2308a7cfcbf2a|0c5122fa98ff7d07|5956b1b8ca5ad095|1977414479||t20053.6591363546s|282e56dba0985854|3053|qs|local|vector|||23.72||
-prct_age_class_yearly_2022|stem|c79ce237052904d2|c79b2102b3d49f61|5956b1b8ca5ad095|-1588659585||t20053.659756193s|442fffa0b52b4b5e|5153|qs|local|vector|||50.5||
-prct_age_class_yearly_2023|stem|d693610ca5483624|22a66043ad60ca14|5956b1b8ca5ad095|-1364495122||t20053.660537679s|c71c7f014e2917e4|5926|qs|local|vector|||64.62||
-prct_age_class_yearly_2024|stem|b12604c6f2612715|d953b5bba160f089|5956b1b8ca5ad095|-1654363475||t20053.6615212989s|2e27651f5444b882|6672|qs|local|vector|||81.78||
+prct_age_class_yearly_2014|stem|18c5cbf08b5c7450|3c10aa2e28184c63|5104862faf5db024|572458032||t20074.8733895838s|7c6c464dae2fa2af|271|qs|local|vector|||4.37||
+prct_age_class_yearly_2015|stem|e488ceb9c458e8bc|2d5b4d2eb0890f05|5104862faf5db024|-813470218||t20074.8734631333s|f8bff6bda11134a2|346|qs|local|vector|||4.25||
+prct_age_class_yearly_2016|stem|05a10c02a02cdafe|2e69bd51c046c88e|5104862faf5db024|855319407||t20074.8735555979s|fddda1a11ff3bc84|812|qs|local|vector|||5.82||
+prct_age_class_yearly_2017|stem|aaf27557821c87b6|b391a7b8b17e6b7a|5104862faf5db024|-195181895||t20074.8736358342s|4778a4e877266c92|485|qs|local|vector|||4.3||
+prct_age_class_yearly_2018|stem|b6f655f52cce93c6|e47b5cd48c468e59|5104862faf5db024|1806416318||t20074.8737076878s|c9df0975a66a11d4|433|qs|local|vector|||4.02||
+prct_age_class_yearly_2020|stem|66d2330ce9b00d57|558e0e5275370e06|5104862faf5db024|-2115275922||t20074.8739279862s|9847779682201bb9|2559|qs|local|vector|||16.85||
+prct_age_class_yearly_2021|stem|c3d2308a7cfcbf2a|cb005fe080a9eaa8|5104862faf5db024|1977414479||t20074.8741907658s|282e56dba0985854|3053|qs|local|vector|||20.47||
+prct_age_class_yearly_2022|stem|c6bbe3db3e959903|37c2ac7cfd3fb208|5104862faf5db024|-1588659585||t20074.8745821882s|442fffa0b52b4b5e|5153|qs|local|vector|||31.97||
+prct_age_class_yearly_2023|stem|d693610ca5483624|a49f343f9dd7374a|5104862faf5db024|-1364495122||t20074.8750835304s|c71c7f014e2917e4|5926|qs|local|vector|||41.32||
+prct_age_class_yearly_2024|stem|6c32c7361da424e4|28d6f5994d93bfdc|5104862faf5db024|-1654363475||t20074.8757362193s|767e1e9a768b74e3|6665|qs|local|vector|||54.06||
 prepare_jdbc|function|8eb54f63c99b0147|||||||||||||||
 prioritize_den_checks|function|c210c7e7ddf1f7ab|||||||||||||||
 pull_den_years|function|446b041fdd5bf311|||||||||||||||
@@ -79,18 +102,18 @@ read_lrg_wkt|function|619f1e459c2c9145|||||||||||||||
 read_regions|function|9770cc518aee18f7|||||||||||||||
 regions|stem|a09fc8508cb6b819|057b5dba01a54b79|260e8fef40042e16|-140773339||t19992.9541002736s|ccaf98066750a5d1|3949|qs|local|vector|||0.69||
 retirement_buffer|object|c386c7b04396aaec|||||||||||||||
-road_density|stem|74b1649c9477c1bd|5e3e40f3ee7df38d|cb1d99d1e4abb981|-1585878288||t20049.9057586802s|f46d77b25312f69d|9524|qs|local|vector|||0||
+road_density|stem|2220aa0684c82a3e|5e3e40f3ee7df38d|22c83fae0ae514ec|-1585878288||t20074.8971024317s|faa19158130c6d15|9511|qs|local|vector|||0||
 road_density_buffer|function|e35339585331a87e|||||||||||||||
-road_density_yearly_2014|stem|d61e42a1dd4f184c|205cd9347d1943ca|edc0f44cfe5e3f69|1747287213||t20053.6621509902s|bdc53509363bb091|209|qs|local|vector|||3.3||
-road_density_yearly_2015|stem|519744f4be66fd3a|04e98143fcf2b0f8|edc0f44cfe5e3f69|-1870660050||t20053.6622181097s|bc4f0fdabb53b2aa|260|qs|local|vector|||4.33||
-road_density_yearly_2016|stem|a0830c7126866ff9|7ca906b7a370fa7b|edc0f44cfe5e3f69|973083363||t20053.6623299698s|4c560146311ec1cd|608|qs|local|vector|||8.02||
-road_density_yearly_2017|stem|71c1767a0b5f65d7|936ab52e3d69321c|edc0f44cfe5e3f69|1476865279||t20053.6624027939s|ae077c1c6e8816b0|353|qs|local|vector|||4.86||
-road_density_yearly_2018|stem|222217dee8b16086|854ae4170cc2f5da|edc0f44cfe5e3f69|-1242819414||t20053.6624650748s|d0bda6d4e66c9646|264|qs|local|vector|||3.9||
-road_density_yearly_2020|stem|170c28d57d74c9cb|a10b84ad698deb13|edc0f44cfe5e3f69|-880430388||t20053.6627657943s|6a12db4a125a0252|1683|qs|local|vector|||24.5||
-road_density_yearly_2021|stem|4a778b35611ae1a6|8f4d17e7176bfcbb|edc0f44cfe5e3f69|-195342151||t20053.6631284512s|1f9b22175ab58c3c|2024|qs|local|vector|||29.92||
-road_density_yearly_2022|stem|0f9e79d5d88580ae|bc23dac973e016cc|edc0f44cfe5e3f69|1494759853||t20053.663730861s|01f4e71813c2cd2b|3304|qs|local|vector|||50.58||
-road_density_yearly_2023|stem|cc469e699f79d49d|6b7b760e53bc3298|edc0f44cfe5e3f69|1354136694||t20053.6644223792s|2014a0157557993a|3790|qs|local|vector|||58.12||
-road_density_yearly_2024|stem|36da319d22f26f0a|2e75a72ddf3a18ff|edc0f44cfe5e3f69|-1434823255||t20053.6649724718s|4aba27bbc283fbf6|4219|qs|local|vector|||46.02||
+road_density_yearly_2014|stem|27067978712d645a|3873d115a555f1e2|9584d79fdb92063e|1747287213||t20074.8771117384s|bdc53509363bb091|209|qs|local|vector|||2.75||
+road_density_yearly_2015|stem|5686817df3bce782|2e3119a6b03347ea|9584d79fdb92063e|-1870660050||t20074.8771636486s|bc4f0fdabb53b2aa|260|qs|local|vector|||3.11||
+road_density_yearly_2016|stem|d5fb741fb019c3c4|e29e767b6828d20f|9584d79fdb92063e|973083363||t20074.877263545s|4c560146311ec1cd|608|qs|local|vector|||7.39||
+road_density_yearly_2017|stem|73a9e322f9ff895a|f86586df7c14f676|9584d79fdb92063e|1476865279||t20074.8773211153s|ae077c1c6e8816b0|353|qs|local|vector|||3.78||
+road_density_yearly_2018|stem|8f3a15e07f3c438c|519c7560f7a3c79d|9584d79fdb92063e|-1242819414||t20074.873301103s|d0bda6d4e66c9646|264|qs|local|vector|||3.02||
+road_density_yearly_2020|stem|38e19317de98ffb0|89162d35520d1bab|9584d79fdb92063e|-880430388||t20074.8759354139s|384650fb81ed5283|1677|qs|local|vector|||16.15||
+road_density_yearly_2021|stem|a40a1cbdb9ba5f9f|e1a8fcd459a633d8|9584d79fdb92063e|-195342151||t20074.8761684978s|1f9b22175ab58c3c|2024|qs|local|vector|||19.22||
+road_density_yearly_2022|stem|949fd3bbd5832962|1173116c94e0cf7b|9584d79fdb92063e|1494759853||t20074.8765541408s|8fc9700adafb1ba6|3245|qs|local|vector|||32.42||
+road_density_yearly_2023|stem|e018cd94b3d8f63a|bd8fcfe497f80de5|9584d79fdb92063e|1354136694||t20074.8770625001s|4152314ef5abb2d8|3791|qs|local|vector|||42.98||
+road_density_yearly_2024|stem|4213f2c793f65131|24caced97028b561|9584d79fdb92063e|-1434823255||t20074.8778839271s|838e8f3f7cded922|4214|qs|local|vector|||47.59||
 roads|stem|a55de9a36f1f543d|b8b46d3781901541|914c971e10acd88c|1038729194||t20000.7440909865s|ef36e54c78c7c7eb|51721497|qs|local|vector|||5.63||
 st_distance_nearest_road|function|bc4ba7edb7dd40b0|||||||||||||||
 st_proportion_age_class|function|b1231438ce883e74|||||||||||||||
@@ -100,7 +123,11 @@ summarize_verifications|function|d6d6ac44fc0c1ff3|||||||||||||||
 test_bcgw|function|dfaacc780e912095|||||||||||||||
 test_poly|stem|efb5bb480e0abc12|8e2e35e133a37665|897558516c7220d9|-824481042||t19992.9508636346s|49592db10e448623|604|qs|local|vector|||3.99||
 to_esri_json|function|1fc6d32feebba37a|||||||||||||||
+<<<<<<< HEAD
 token|object|7ee974387ec1defa|||||||||||||||
+=======
+token|object|185b1e182a29ac5e|||||||||||||||
+>>>>>>> main
 verify_bears|function|308f11e593e41011|||||||||||||||
 verify_forestry|function|0962b0fdda763557|||||||||||||||
 vi_vri|stem|f69ee81211f22d87|d87c531a3622ced3|b581e993cd2cd253|-575454236||t19993.0646251466s|b237eb8170bfa1f1|210231457|qs|local|vector|||4405.72||
