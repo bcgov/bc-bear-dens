@@ -55,4 +55,3 @@ temp/
 GIS/*
 !GIS/regions_wkt.csv
 *.zip
-Data Summary/*
