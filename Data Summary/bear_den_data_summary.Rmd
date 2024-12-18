@@ -1,0 +1,673 @@
+---
+title: "Bear Den Data Summary"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r xaringan-themer, include = FALSE, warning = FALSE}
+library(xaringanthemer)
+style_solarized_light(header_color = "#859900")
+```
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+
+# Set working directory to the project folder, so the script can find the targets
+#knitr::opts_knit$set(root.dir = rstudioapi::getActiveProject())
+
+# Global knitr options
+knitr::opts_chunk$set(warning = FALSE, # don't print code warnings in slides 
+                      message = FALSE, # don't print code messages in slides
+                      fig.align='center', # center align any figures
+                      dev = "svg") # make any plots "svg" format (rather than PNG or JPEG for example)
+
+# Load packages
+library(sf)
+library(leaflet)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(targets)
+
+# Read in tokens
+# For this specific markdown file, we need the 'jawg_token' to load
+# the nice basemap for the interactive map.
+source("../temp/token.R")
+
+# Load targets
+# Since this markdown file isn't actually part of the targets
+# pipeline, you need this weird workaround to load a target:
+# https://github.com/ropensci/targets/issues/230
+
+# dens = dens metadata (with no field visit info attached)
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(dens))
+
+# f = field visits table (with no den metadata attached)
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(f))
+
+# f_full = full field visits table merged with den metadata (incl. spatial lat/lon)
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(f_full))
+
+# v_f = forestry verifications output
+v_f <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                       tar_read(forestry_verifications_full)) # use `tar_read` when you want to read a target but assign it to a new object name in the R environment
+
+# prop_1km = proportion forested within 1.5km
+prop_1km <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                            tar_read(prct_age_class_1.5km)) # use `tar_read` when you want to read a target but assign it to a new object name in the R environment
+
+# road_density = road density around each den
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(road_density))
+
+```
+
+```{r dens prep, include = FALSE}
+# Wrap this up into `clean_bears` func at some point
+# Coerce factors
+factors <- c("struct_stage", "age_class", "slope_position", "den_type", "den_tree_species", "district")
+dens %<>% mutate_at(factors, factor)
+# Remove 999
+dens %<>%
+  mutate(across(where(is.numeric), ~replace(., . == 999, NA)),
+         across(where(is.numeric), ~replace(., . == -999, NA)))
+
+```
+
+There are currently **`r nrow(dens)`** dens being tracked, and a total of **`r nrow(f)`** field visits completed to date (**`r Sys.Date()`**).
+
+```{r den map, out.width='100%', fig.height=6.5, eval=require('leaflet'), echo = FALSE}
+
+dens %>%
+  st_transform(4326) %>%
+  leaflet() %>% 
+  addTiles() %>%
+  setView(lng = -127.8, lat = 51.5, zoom = 6) %>%
+  addCircleMarkers(layerId = ~den_id,
+                   radius = 4,
+                   color = "#c852ef",
+                   stroke = FALSE,
+                   fillOpacity = 0.8,
+                   popup = ~htmltools::htmlEscape(den_id)) %>%
+  addTiles("Jawg.Terrain", 
+           options = providerTileOptions(accessToken = jawg_token),
+           group = "Terrain") %>%
+  addProviderTiles("Esri.WorldImagery",
+                   group = "Satellite") %>%
+  addLayersControl(baseGroups = c("Terrain", "Satellite"),
+                   position = "topright") %>%
+  addMeasure(primaryLengthUnit = "meters")
+  
+  
+```
+
+.footnote[*Use the menus on the top-right to change the basemap or perform measurements.*]
+
+---
+
+# Explore categorical variables
+### District
+
+```{r}
+knitr::kable(table(dens$district), col.names = c("District", "N"))
+```
+
+---
+
+# Explore categorical variables
+### Den Tree Species
+
+```{r}
+knitr::kable(table(dens$den_tree_species), col.names = c("Den Tree Species", "N"))
+```
+
+---
+
+# Explore categorical variables
+### Proportion by tree species
+
+```{r}
+trees <- table(dens$den_tree_species)
+(trees/sum(trees))*100
+```
+
+---
+
+# Explore categorical variables
+### Den Type
+
+```{r}
+knitr::kable(table(dens$den_type), col.names = c("Den Type", "N"))
+```
+
+---
+
+# Explore categorical variables
+### Age Class
+
+```{r}
+knitr::kable(table(dens$age_class), col.names = c("Age Class", "N"))
+```
+
+---
+
+# Explore categorical variables
+### Den State (initial visit)
+
+```{r}
+knitr::kable(table(dens$den_state), col.names = c("Den State", "N"))
+```
+
+---
+class: center, middle, inverse
+
+# Den Status
+
+## Rates of Re-Use
+
+---
+
+```{r, echo=FALSE}
+knitr::kable(table(f$den_status), col.names = c("Den Status", "N"))
+```
+
+---
+class: center
+
+### "Active"
+
+```{r, echo=FALSE}
+knitr::kable(table(f$den_status), col.names = c("Den Status", "N")) |> 
+  kableExtra::kable_styling() |> 
+  kableExtra::row_spec(c(1:3), bold = TRUE, background = "#b58900") |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+---
+class: center
+
+### "Non-Active"
+
+```{r, echo=FALSE}
+knitr::kable(table(f$den_status), col.names = c("Den Status", "N")) |> 
+  kableExtra::kable_styling() |> 
+  #kableExtra::row_spec(c(1:4), bold = FALSE, background = "#b58900") |>
+  kableExtra::row_spec(c(4:7), bold = TRUE, background = "#93a1a1") |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+---
+class: center
+
+### "Unknown/Obsolete"
+
+```{r, echo=FALSE}
+knitr::kable(table(f$den_status), col.names = c("Den Status", "N")) |> 
+  kableExtra::kable_styling() |> 
+  #kableExtra::row_spec(c(1:4), bold = FALSE, background = "#b58900") |>
+  #kableExtra::row_spec(c(5:14), bold = FALSE, background = "#93a1a1") |>
+  kableExtra::row_spec(c(8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+---
+
+# Rates of re-use
+
+First need to categorize dens into `Active`, `Not Active`, or `Unknown`.
+Based on the highlighted rows in the tables of the previous slides, we have:
+
+```{r, echo = FALSE}
+# Add a `active_yn` column
+f <- f |> dplyr::mutate(active_yn = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
+                                                     den_status == "Obsolete" ~ "Obsolete",
+                                                     den_status == "Unknown" ~ "Unknown",
+                                                     TRUE ~ "Active"))
+
+# Double check our categories
+unique(f[,c("den_status", "active_yn")])
+```
+
+---
+
+# Rates of re-use
+
+First need to categorize dens into `Active`, `Not Active`, or `Unknown`.
+Based on the highlighted rows in the tables of the previous slides, we have:
+
+```{r}
+plyr::count(f$active_yn) |>
+  knitr::kable(col.names = c("Den Status", "N"))
+```
+
+Total number of visits = **`r nrow(f)`**
+
+---
+
+# Rates of re-use
+
+First need to categorize dens into `Active`, `Not Active`, or `Unknown`.
+Based on the highlighted rows in the tables of the previous slides, we have:
+
+```{r}
+plyr::count(f$active_yn) |>
+  dplyr::mutate(freq = round(freq/nrow(f) * 100)) |>
+  knitr::kable(col.names = c("Den Status", "%"))
+```
+
+Total number of visits = **`r nrow(f)`**
+
+---
+
+# Rates of re-use
+
+For now, I'm counting `Unknown`s the same as `Not Active`.
+
+This is a quick and dirty assignment of 're-use' - it doesn't take into account if there's been a large temporal gap (e.g., years) between visits.
+
+```{r}
+# Arrange table by den_id and date_inspected
+f <- f[order(f$den_id, f$date_inspected),]
+# Add in a cumulative visit col by each den - i.e. the Nth field visit to the given den
+f <- f |>
+  dplyr::group_by(den_id) |>    
+  dplyr::mutate(cumulative_visit = cumsum(!is.na(den_id)))
+# Create `reuse_yn` col
+f <- f |> 
+  dplyr::group_by(den_id) |>
+  dplyr::mutate(reuse_yn = ifelse(cumulative_visit == 1,
+                                  # If it's the first visit to the den, set `reuse_yn` == NA
+                                  NA, 
+                                  # Else if it's NOT the first visit, and the previous record says "Active", set `reuse_yn` == TRUE
+                                  (dplyr::lag(active_yn) == "Active" & active_yn == "Active")) 
+                )
+```
+
+---
+
+#### Rates of re-use
+
+```{r, echo = FALSE}
+f[,c("den_id", "sample_id", "date_inspected", "cumulative_visit", "active_yn", "reuse_yn")] |> 
+  DT::datatable(options = list(
+    pageLength = 8,
+    scrollX = FALSE,
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '50%'});",
+      "}"
+      )
+    )) |>
+  DT::formatStyle(columns = c(1:6), fontSize = "50%") |>
+  DT::formatStyle(columns = c(1:6), width = c("5%"))
+```
+
+---
+
+# Rates of re-use
+
+#### Count of re-use
+
+.footnote[*Note that `NA` signifies the first visit to a den - we don't know if `reuse_yn == TRUE` or `FALSE` bc it's the first visit*]
+
+```{r}
+knitr::kable(plyr::count(f$reuse_yn), col.names = c("Re-Used (T/F)", "N"))
+```
+
+---
+
+# Rates of re-use
+
+#### Percent of re-use
+
+.footnote[*Note that `NA` signifies the first visit to a den - we don't know if `reuse_yn == TRUE` or `FALSE` bc it's the first visit*]
+
+```{r}
+knitr::kable(plyr::count(f$reuse_yn) |> dplyr::mutate(freq = round(freq/nrow(f) * 100)), col.names = c("Re-Used (T/F)", "%"))
+```
+
+---
+
+# Rates of re-use
+
+### ADA_EveRiver_1
+
+```{r, echo = FALSE}
+f[f$den_id == "ADA_EveRiver_1", c("den_id", "sample_id", "date_inspected", "cumulative_visit", "active_yn", "reuse_yn")] |>
+  knitr::kable() |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+---
+
+# Rates of re-use
+
+### COU_CousCreek_2
+
+```{r, echo = FALSE}
+f[f$den_id == "COU_CousCreek_2", c("den_id", "sample_id", "date_inspected", "cumulative_visit", "active_yn", "reuse_yn")] |>
+  knitr::kable() |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+---
+
+# Rates of re-use
+
+### LOW_FlorenceCreek_1
+
+```{r, echo = FALSE}
+f[f$den_id == "LOW_FlorenceCreek_1", c("den_id", "sample_id", "date_inspected", "cumulative_visit", "active_yn", "reuse_yn")] |>
+  knitr::kable() |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+---
+# Rates of re-use
+
+### TSI_MountRussell_2
+
+```{r, echo = FALSE}
+f[f$den_id == "TSI_MountRussell_2", c("den_id", "sample_id", "date_inspected", "cumulative_visit", "active_yn", "reuse_yn")] |>
+  knitr::kable() |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+---
+
+# Rates of re-use
+
+### NAK_JohnstoneStrait_3
+
+```{r, echo = FALSE}
+f[f$den_id == "NAK_JohnstoneStrait_3", c("den_id", "sample_id", "date_inspected", "cumulative_visit", "active_yn", "reuse_yn")] |>
+  knitr::kable() |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+---
+
+# Rates of re-use
+
+### SAN_PalmerstonRiver_2
+
+```{r, echo = FALSE}
+f[f$den_id == "SAN_PalmerstonRiver_2", c("den_id", "sample_id", "date_inspected", "cumulative_visit", "active_yn", "reuse_yn")] |>
+  knitr::kable() |>
+  kableExtra::kable_styling(font_size = 14)
+```
+
+
+---
+class: center, middle, inverse
+
+# Forestry summary data
+
+Using the latest verifications (with the caveat that they themselves haven't been fully verified yet)!
+
+---
+
+### Proportion forested within 60m
+
+Note this includes all field visits, including dens with repeated visits.
+
+```{r}
+summary(v_f$prop_forest_60m)
+```
+
+```{r, fig.height=4}
+hist(v_f$prop_forest_60m, main = "Histogram of Proportion Forested", xlab = "Proportion Forested within 60m (%)")
+```
+
+---
+
+### Distance to <40 yo forest
+
+Note this includes all field visits, including dens with repeated visits.
+
+```{r}
+summary(v_f$dist_lt40)
+```
+
+```{r, fig.height=4}
+hist(v_f$dist_lt40, main = "Histogram of Distance to <40yo Forest", xlab = "Distance to <40 yo forest (m)")
+```
+
+---
+
+### Distance to <40 yo forest
+
+Note this includes all field visits, including dens with repeated visits.
+
+```{r}
+summary(v_f$dist_gt40)
+```
+
+```{r, fig.height=4}
+hist(v_f$dist_gt40, main = "Histogram of Distance to >40yo Forest", xlab = "Distance to >40 yo forest (m)")
+```
+
+---
+
+### Distance to nearest road
+
+Note this includes all field visits, including dens with repeated visits.
+
+```{r}
+summary(v_f$dist_road)
+```
+
+```{r, fig.height=4}
+hist(v_f$dist_road, main = "Histogram of Distance to Nearest Road", xlab = "Distance to nearest road (m)")
+```
+
+
+---
+
+### Proportion forested within 1.5 km
+
+Note this includes all field visits, including dens with repeated visits
+
+```{r}
+# The age class cols are already percentages for each year. So, just
+# take the mean percentage of each age class across all years
+round(colSums(prop_1km[,4:12]) / nrow(prop_1km)) |>
+  knitr::kable(col.names = c("Stand Age Class", "Percentage"))
+```
+---
+
+### Proportion forested within 1.5 km
+
+Note this includes all field visits, including dens with repeated visits
+
+```{r, echo = FALSE}
+prop_1km |>  
+  # First pivot the data into long format - age class becomes a single column
+  tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
+  # Then summarize the mean % age class by year 
+  dplyr::group_by(year, age_class) |> 
+  dplyr::summarise(value = mean(value)) |>
+  # Then plot
+  ggplot(aes(x = year, y = value, fill = age_class)) +
+  geom_area() +
+  theme_minimal()
+```
+---
+
+### Proportion forested within 1.5 km
+
+Note this includes all field visits, including dens with repeated visits
+
+```{r, echo = FALSE}
+prop_1km |>  
+  # First pivot the data into long format - age class becomes a single column
+  tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
+  # Condense age class for each den visit into either ">= 3" or "< 3"
+  dplyr::mutate(age_class = ifelse(grepl("1|2", age_class), "Less than 3", "Greater or equal to 3")) |>
+  dplyr::mutate(age_class = factor(age_class, levels = c("Less than 3", "Greater or equal to 3"))) |> # Flip plotting order so it stays lined up with previous graph
+  dplyr::group_by(sample_id, year, age_class) |>
+  dplyr::summarise(value = sum(value)) |>
+  # Then summarize the mean % age class by year
+  dplyr::group_by(year, age_class) |>
+  dplyr::summarise(value = mean(value)) |>
+  # Then plot
+  ggplot(aes(x = year, y = value, fill = age_class)) +
+  geom_area() +
+  theme_minimal()
+```
+---
+
+### Proportion forested within 1.5 km
+
+Note this includes all field visits, including dens with repeated visits
+
+```{r, echo = FALSE}
+prop_1km |>  
+  # First pivot the data into long format - age class becomes a single column
+  tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
+  dplyr::mutate(age_class = as.numeric(age_class)) |>
+  # Condense age class for each den visit into either ">= 3" or "< 3"
+  dplyr::mutate(age_class = dplyr::case_when(age_class < 3 ~ "Less than 3",
+                                             age_class >= 8 ~ "Older than 7",
+                                             TRUE ~ "3 to 7")) |>
+  dplyr::mutate(age_class = factor(age_class, levels = c("Less than 3", "3 to 7", "Older than 7"))) |>
+  dplyr::group_by(sample_id, year, age_class) |>
+  dplyr::summarise(value = sum(value)) |>
+  # Then summarize the mean % age class by year
+  dplyr::group_by(year, age_class) |>
+  dplyr::summarise(value = mean(value)) |>
+  # Then plot
+  ggplot(aes(x = year, y = value, fill = age_class)) +
+  geom_area() +
+  theme_minimal()
+```
+---
+
+### Road density within 1.5 km
+
+Note this includes all field visits, including dens with repeated visits.
+
+```{r}
+summary(road_density$road_density_m2)
+```
+
+```{r, fig.height=4}
+hist(road_density$road_density_m2, main = "Histogram of Road Density", xlab = "Road Density within 1.5km radius")
+```
+---
+
+### Road density within 1.5 km
+
+Note this includes all field visits, including dens with repeated visits.
+
+```{r, echo = FALSE}
+road_density |>
+  ggplot(aes(x = year, y = road_density_m2, color = den_id)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Road density for each den through time") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+---
+class: center, middle, inverse
+
+# Forestry vs. Den Status
+
+---
+
+```{r boxplot prep, echo = FALSE, dev.args=list(bg="transparent")}
+p_f <- merge(v_f, f, by = "sample_id")
+#hrbrthemes::import_plex_sans()
+
+ggplot(p_f, aes(x = active_yn, 
+                y = prop_forest_60m,
+                color = active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  ggsignif::geom_signif(comparisons = list(c("Active", "Not Active")),
+                        map_signif_level = TRUE) +
+  #hrbrthemes::theme_ipsum_ps(axis_title_just = "mc") +
+  hrbrthemes::scale_color_ipsum() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "transparent", color = NA_character_),
+        plot.background = element_rect(fill = "transparent", color = NA_character_),
+        text = element_text(size = 20)) + 
+  labs(x = "Den Status",
+       y = "Proportion Forested within 60m (%)")
+```
+
+
+---
+
+```{r, echo = FALSE, dev.args=list(bg="transparent")}
+#p_f[p_f$new_dist_lt40 < 2000, ] |> 
+ggplot(p_f, aes(x = active_yn, 
+                y = dist_lt40,
+                color = active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  ggsignif::geom_signif(comparisons = list(c("Active", "Not Active")),
+                        map_signif_level = TRUE) +
+  scale_y_log10() +
+  #hrbrthemes::theme_ipsum_ps(axis_title_just = "mc") +
+  hrbrthemes::scale_color_ipsum() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "transparent", color = NA_character_),
+        plot.background = element_rect(fill = "transparent", color = NA_character_),
+        text = element_text(size = 20)) +
+  labs(x = "Den Status",
+       y = "LOG Distance to <40yo forest (m)")
+```
+
+
+---
+
+```{r, echo = FALSE, dev.args=list(bg="transparent")}
+ggplot(p_f, aes(x = active_yn, 
+                y = dist_gt40,
+                color = active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  ggsignif::geom_signif(comparisons = list(c("Active", "Not Active")),
+                        map_signif_level = TRUE) +
+  scale_y_log10() +
+  #hrbrthemes::theme_ipsum_ps(axis_title_just = "mc") +
+  hrbrthemes::scale_color_ipsum() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "transparent", color = NA_character_),
+        plot.background = element_rect(fill = "transparent", color = NA_character_),
+        text = element_text(size = 20)) +
+  labs(x = "Den Status",
+       y = "LOG Distance to >40yo forest (m)")
+```
+
+
+---
+
+```{r, echo = FALSE, dev.args=list(bg="transparent")}
+ggplot(p_f, aes(x = active_yn, 
+                y = dist_road,
+                color = active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  ggsignif::geom_signif(comparisons = list(c("Active", "Not Active")),
+                        map_signif_level = TRUE) +
+  scale_y_log10() +
+  #hrbrthemes::theme_ipsum_ps(axis_title_just = "mc") +
+  hrbrthemes::scale_color_ipsum() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "transparent", color = NA_character_),
+        plot.background = element_rect(fill = "transparent", color = NA_character_),
+        text = element_text(size = 20)) +
+  labs(x = "Den Status",
+       y = "LOG Distance to nearest road")
+```
