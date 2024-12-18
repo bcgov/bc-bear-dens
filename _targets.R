@@ -7,17 +7,17 @@
 # This code is used to automatically run the functions stored in the "R" 
 # folder of this Github project, and then 'save' the R objects/values 
 # that they create so that it is easy to pull up again.
-# Comment out the GIS related fields as we do not want to download the BCGW 
-# layers to my computer (not currently backed up) if don't need to run forestry verification.
 
 # When using this first time - install.packages "targets", "tarchetypes", qs2, visNetwork
 # may also need to install.packages(c("qs", "RJDBC", "keyring", "DBI", "arrow", "sf", "lubridate", "httr", "janitor"))
 
 ## TO RUN THE PIPELINE:
-# Define a new target you wish to make with tar_target()
-# tar_validate() # check if any errors in your pipeline (only necessary to do if you make changes to the pipeline)
-# tar_visnetwork # if want to, shows data pipeline and dots are targets
-# tar_make() # makes each target in the pipeline, essentially runs this code
+#  * tar_make() # makes each target in the pipeline, essentially runs this code
+#  * tar_validate() # check if any errors in your pipeline (only necessary to do if you make changes to the pipeline)
+#  * tar_visnetwork # if want to, shows data pipeline and dots are targets
+
+# If your targets are already up-to-date on your computer, then the pipeline
+# will note 'skipped' after you run tar_make().
 
 ## TO USE THE RESULTS:
 # When want to use these targets, in new script type library(targets), 
@@ -25,8 +25,6 @@
 
 ## TROUBLESHOOTING:
 # Errors are often packages needing install. 
-# If your targets are already up-to-date on your computer, then the pipeline
-# will note 'skipped' after you run tar_make().
 
 # Load packages required to define the pipeline:
 library(targets)
@@ -53,7 +51,7 @@ tar_source()
 
 # SET MANUAL VARIABLES 
 # Load API tokens
-source("temp/token.R")
+source("temp/token.R") # note that it is stored in the "temp" folder - this folder is not commited to Github, so everything in this folder stays private
 
 # Provide a list of years to run each forestry verification on
 # While we could automatically pull that from the den data, it
