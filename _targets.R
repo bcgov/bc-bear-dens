@@ -3,6 +3,31 @@
 # Then follow the manual to check and run the pipeline:
 #   https://books.ropensci.org/targets/walkthrough.html#inspect-the-pipeline
 
+## USER NOTES:
+# This code is used to automatically run the functions stored in the "R" 
+# folder of this Github project, and then 'save' the R objects/values 
+# that they create so that it is easy to pull up again.
+# Comment out the GIS related fields as we do not want to download the BCGW 
+# layers to my computer (not currently backed up) if don't need to run forestry verification.
+
+# When using this first time - install.packages "targets", "tarchetypes", qs2, visNetwork
+# may also need to install.packages(c("qs", "RJDBC", "keyring", "DBI", "arrow", "sf", "lubridate", "httr", "janitor"))
+
+## TO RUN THE PIPELINE:
+# Define a new target you wish to make with tar_target()
+# tar_validate() # check if any errors in your pipeline (only necessary to do if you make changes to the pipeline)
+# tar_visnetwork # if want to, shows data pipeline and dots are targets
+# tar_make() # makes each target in the pipeline, essentially runs this code
+
+## TO USE THE RESULTS:
+# When want to use these targets, in new script type library(targets), 
+# then tar_load([name of target]), e.g. tar_load(f_full)
+
+## TROUBLESHOOTING:
+# Errors are often packages needing install. 
+# If your targets are already up-to-date on your computer, then the pipeline
+# will note 'skipped' after you run tar_make().
+
 # Load packages required to define the pipeline:
 library(targets)
 library(tarchetypes) # Load other packages as needed.
@@ -10,7 +35,7 @@ library(tarchetypes) # Load other packages as needed.
 # Set target options:
 tar_option_set(
   packages = c("qs",
-               "RJDBC",
+               #"RJDBC", # You only need this if you're downloading GIS files off BCGW
                "keyring",
                "DBI",
                "arrow",
@@ -46,7 +71,7 @@ list(
   #tar_target(bcgw_keys, bcgw_set_keys()), # need a better way to handle this... if the keys aren't set, the pipeline will fail
   # Query BCGW
   tar_target(test_poly, test_bcgw()),
-  tar_target(regions, read_regions()),
+  tar_target(regions, read_regions()), # a very simple WKT shapefile that defines the Haida Gwaii region vs. VI region
   tar_target(hg_vri, query_hg_vri(regions)),
   tar_target(vi_vri, query_vi_vri(regions)),
   tar_target(hg_vi_roads, query_basemapping_roads(regions)),
@@ -87,7 +112,7 @@ list(
                create_fvl(den_year = years, # `years` in this case refers to the `years` column in `fvl_years` df
                           vri = vri,
                           depletions = deps)
-               ),
+    ),
     # Run forestry verification algorithms (% forested 60m, dist <40yo forest, dist >40yo forest, dist road) for each year
     tar_target(forestry_verification,
                verify_forestry(feature = f_geom,
@@ -95,7 +120,7 @@ list(
                                roads = roads,
                                year = years, # `years` in this case refers to the `years` column in `fvl_years` df
                                retirement_buffer = retirement_buffer, # years buffer to add to road retirement date to still include recently retired, but still driveable, roads in verification checks
-                               )),
+               )),
     # % age class around each den
     tar_target(prct_age_class_yearly,
                st_proportion_age_class(feature = f_geom[lubridate::year(f_geom$date_inspected) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
@@ -109,7 +134,7 @@ list(
                                filter_by_date = FALSE,
                                filter_by_year = TRUE,
                                retirement_buffer = retirement_buffer))
-    ),
+  ),
   # Combine all the fruits of our labor into one df!
   tar_combine(forestry_verifications_full,
               mapped[[2]], # merge the second item in `mapped` ('forestry_verification') into one df 
