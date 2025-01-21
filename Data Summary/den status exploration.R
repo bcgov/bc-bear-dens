@@ -625,7 +625,7 @@ dat <- f[f$den_status_binary %in% c("Active", "Not active"), ]
 dat <- dat[, c("den_status_binary", "prop_forest_60m", "dist_lt40", "dist_gt40")]
 dat <- dat[complete.cases(dat),]
 
-# Convert hair_in_bed to 0 or 1
+# Convert den_status_binary to 0 or 1
 dat$den_status_binary <- ifelse(dat$den_status_binary == "Active", 1, 0)
 
 # Rescale numeric responses
