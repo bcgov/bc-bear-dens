@@ -7,8 +7,10 @@ library(sf)
 tar_load(f)
 tar_load(dens) # to get static den characteristics + lat/long
 dens <- cbind(dens, sf::st_coordinates(dens)) # add coordinates as X, Y cols
+names(dens)[grep("^X$", names(dens))] <- "longitude"
+names(dens)[grep("^Y$", names(dens))] <- "latitude"
 
-f <- merge(f, dens)
+f <- merge(f, dens, by = "den_id")
 
 # Load up other libraries
 library(ggplot2)
@@ -16,7 +18,7 @@ library(ggsignif)
 library(lme4)
 
 # Assign either VI or HG to data, to examine by island
-f$region <- ifelse(f$Y > 52, "HG", "VI")
+f$region <- ifelse(f$latitude > 52, "HG", "VI")
 
 # Take a look at windthrow variables
 unique(f$x_windthrow_code)
@@ -57,7 +59,8 @@ plyr::count(f$den_status_binary)
 
 # First, to make things more manageable, subset to
 # just our columns of interest
-f <- f[,c("sample_id", "den_id", "date_inspected",
+f <- f[,c("sample_id", "den_id", "date_inspected", 
+          "region", "latitude", "longitude",
           "bed_depth", "bed_width", "bed_length", 
           "hair_in_bed", 
           "den_status", "den_status_binary",
@@ -97,8 +100,8 @@ f <- f[order(f$den_id, f$year),]
 
 # We're going to do this in a simple way... chop the data in half vertically,
 # so we have f_a: den info and f_b: forestry info. 
-f_a <- f[,c(1:9, 22)] # select columns 1:9 (den info) + column 22 (year)
-f_b <- f[,c(1:2, 10:22)] # select columns 1:2 (sample_id, den_id) + 10:22 (forestry info). 
+f_a <- dplyr::select(f, sample_id:den_status_binary, year) # select columns 1:9 (den info) + column 22 (year)
+f_b <- dplyr::select(f, sample_id, den_id, forestry_treatment_desc:year) # select columns 1:2 (sample_id, den_id) + 10:22 (forestry info). 
 
 # Next, subtract -1 from the den status year - since it's technically
 # whether or not the den was occupied in the *last* year
@@ -116,7 +119,7 @@ f <- merge(f_a, f_b, by = c("den_id", "year"), suffixes = c("_den", "_forest"))
 
 # Next let's just rename some of the columns to make them a bit more consistent.
 # In theory, now that we've done a ton of manual QC, f_* should equal v_*!!
-names(f)[13:23] <- c("nearest_tree_m", 
+names(f)[16:26] <- c("nearest_tree_m", 
                      "f_prop_forest_60m", "v_prop_forest_60m",
                      "f_dist_lt40", "v_dist_lt40",
                      "f_dist_gt40", "v_dist_gt40", 
@@ -348,7 +351,7 @@ f |>
 
 f |>
   ggplot(aes(x = den_status_binary, 
-             y = Y)) +
+             y = latitude)) +
   geom_boxplot() +
   geom_jitter() +
   geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
@@ -364,7 +367,7 @@ f |>
 # further north has more 'Not active' frequency
 # also definitely HIGH clustering of 'Obsolete' dens on VI
 f |>
-  ggplot(aes(x = Y,
+  ggplot(aes(x = latitude,
              color = den_status_binary,
              fill = den_status_binary)) +
   geom_density(alpha = 0.1) +
@@ -382,7 +385,7 @@ f |>
 
 f |>
   ggplot(aes(x = den_status_binary, 
-             y = X)) +
+             y = longitude)) +
   geom_boxplot() +
   geom_jitter() +
   geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
@@ -397,7 +400,7 @@ f |>
 # definitely some clustering in 'Obsolete' dens related to longitude
 # on Vancouver Island
 f |>
-  ggplot(aes(x = X,
+  ggplot(aes(x = longitude,
              color = den_status_binary,
              fill = den_status_binary)) +
   geom_density(alpha = 0.1) +
@@ -409,6 +412,7 @@ f |>
   labs(x = "Longitude",
        y = "Density") +
   theme_minimal()
+
 
 
 # ONLY FOR SURE ACTIVE/NON ACTIVE -----------------------------------------
@@ -569,7 +573,7 @@ f[which(f$den_status %in% for_sure_dens), ] |>
 
 f[which(f$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = den_status_binary, 
-             y = Y)) +
+             y = latitude)) +
   geom_boxplot() +
   geom_jitter() +
   geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
@@ -577,12 +581,12 @@ f[which(f$den_status %in% for_sure_dens), ] |>
   #annotation_logticks(side = "l") +
   facet_wrap(~ region) +
   labs(x = "Den Status",
-       y = "Longitude",
+       y = "Latitude",
        title = "Den Status vs. Latitude",
        subtitle = "All categories binned into either 'Active' or 'Not active'") 
 
 f[which(f$den_status %in% for_sure_dens), ] |>
-  ggplot(aes(x = Y,
+  ggplot(aes(x = latitude,
              color = den_status_binary,
              fill = den_status_binary)) +
   geom_density(alpha = 0.1) +
@@ -599,7 +603,7 @@ f[which(f$den_status %in% for_sure_dens), ] |>
 
 f[which(f$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = den_status_binary, 
-             y = X)) +
+             y = longitude)) +
   geom_boxplot() +
   geom_jitter() +
   geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
@@ -613,7 +617,7 @@ f[which(f$den_status %in% for_sure_dens), ] |>
 
 # some clustering in VI
 f[which(f$den_status %in% for_sure_dens), ] |>
-  ggplot(aes(x = X,
+  ggplot(aes(x = longitude,
              color = den_status_binary,
              fill = den_status_binary)) +
   geom_density(alpha = 0.1) +
@@ -941,7 +945,10 @@ f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
        y = "Density") +
   theme_minimal()
 
-# CHI SQUARE ACTIVE X HAIR ------------------------------------------------
+
+# CHI SQUARES -------------------------------------------------------------
+
+##### Den status x Hair #####
 
 
 f |>
@@ -1010,6 +1017,37 @@ chisq <- f |>
   tidyr::pivot_wider(names_from = hair_in_bed,
                      values_from = n) |>
   tibble::column_to_rownames(var = "den_status_binary") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+
+chisq$observed
+round(chisq$expected, 1)
+corrplot::corrplot(chisq$residuals, is.corr = FALSE)
+
+
+##### Den Status x Region #####
+
+f |>
+  #dplyr::filter(den_status %in% for_sure_dens) |>
+  dplyr::group_by(region, den_status_binary) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = den_status_binary,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "region") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  as.table() |>
+  gplots::balloonplot(main = "Den Status x Region")
+
+
+chisq <- f |>
+  dplyr::group_by(region, den_status) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = region,
+                     values_from = n) |>
+  dplyr::mutate(den_status = dplyr::if_else(!is.na(den_status), den_status, "NA")) |>
+  tibble::column_to_rownames(var = "den_status") |>
   dplyr::mutate_all(~replace(., is.na(.), 0)) |>
   as.matrix() |>
   chisq.test()
@@ -1150,23 +1188,23 @@ f$log_dist_gt40 <- log(f$f_dist_gt40 + 1)
 f$log_dist_road <- log(f$f_dist_road + 1)
 
 cor_mtx <- cor(f[,c("f_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road", 
-                    "log_dist_from_edge", "year", "Y", "X",
+                    "log_dist_from_edge", "year", "latitude", "longitude",
                     "windthrow_prct", "lt_3", "gt_8", "road_density_m2")], 
                use = "pairwise.complete.obs")
 
 corrplot::corrplot(cor_mtx, is.corr = FALSE, insig = "p-value")
 
 # Check for correlations with FULL dataset
-GGally::ggpairs(f[,c("den_status_binary", "hair_in_bed",
+GGally::ggpairs(f[,c("den_status_binary", "hair_in_bed", "region",
                      "f_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road", 
-                     "log_dist_from_edge", "age", "year", "Y", "X",
+                     "log_dist_from_edge", "age", "year", "latitude", "longitude",
                      "windthrow_prct", "lt_3", "gt_8", "road_density_m2")])
 
 # Check for correlations with ONLY FOR SURE DENS dataset
 GGally::ggpairs(f[which(f$den_status %in% for_sure_dens),
-                  c("den_status_binary", "hair_in_bed",
+                  c("den_status_binary", "hair_in_bed", "region",
                      "f_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road", 
-                     "log_dist_from_edge", "age", "year", "Y", "X",
+                     "log_dist_from_edge", "age", "year", "latitude", "longitude",
                      "windthrow_prct", "lt_3", "gt_8", "road_density_m2")])
 
 # BANNED COVARIATES!
@@ -1191,7 +1229,8 @@ GGally::ggpairs(f[which(f$den_status %in% for_sure_dens),
 # Subset to data of interest/suitability for ONLY FOR SURE DENS
 # I.e. exclude any "Active in last 4 seasons" ones
 dat <- f[f$den_status_binary %in% c("Active", "Not active") & f$den_status %in% for_sure_dens, ]
-dat <- dat[, c("den_status_binary", "den_id", "year", "age",
+dat <- dat[, c("den_status_binary", "den_id", "year", "age", 
+               "region", "latitude", "longitude",
                "f_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road",
                "log_dist_from_edge", "lt_3", "gt_8", "road_density_m2")]
 dat <- dat[complete.cases(dat),]
@@ -1239,6 +1278,10 @@ dat |>
 # Let's drop "on_edge" bc it's perfectly == 0 in distance.
 dat <- dat[which(dat$age != "on_edge"),]
 
+# Examine region
+# Nice - even variances there
+car::leveneTest(den_status_binary ~ region, dat) # null hypothesis: variances are not significantly different
+
 # Rescale numeric responses
 # REMEMBER TO BACK-TRANSFORM IF NECESSARY.
 dat$s_prop_forest_60m <- scale(dat$f_prop_forest_60m)[,1]
@@ -1266,6 +1309,7 @@ test.data <- dat[-train.samples,]
 # Fit the models!
 # Just the basics - each forest metric - effectively same as examining boxplots for significance
 model00 <- glm(den_status_binary ~ s_year, data = train.data, family = binomial)
+model0r <- glm(den_status_binary ~ region, data = train.data, family = binomial)
 model0a <- glm(den_status_binary ~ s_prop_forest_60m , data = train.data, family = binomial)
 model0b <- glm(den_status_binary ~ s_dist_lt40 , data = train.data, family = binomial)
 model0c <- glm(den_status_binary ~ s_dist_gt40 , data = train.data, family = binomial)
@@ -1280,6 +1324,7 @@ model0k <- glm(den_status_binary ~ road_density_m2 , data = train.data, family =
 model0l <- glm(den_status_binary ~ gt_8 + s_dist_lt40 , data = train.data, family = binomial)
 model0m <- glm(den_status_binary ~ gt_8 + s_prop_forest_60m , data = train.data, family = binomial)
 model0n <- glm(den_status_binary ~ road_density_m2 + s_dist_road , data = train.data, family = binomial)
+model0o <- glm(den_status_binary ~ s_dist_lt40 * region, data = train.data, family = binomial)
 
 models_names <- ls()[grep("model0", ls())]
 models_list <- lapply(models_names, get)
@@ -1298,6 +1343,7 @@ bbmle::AICtab(models_list, weights = TRUE) # They are all almost identical model
 # ALWAYS be zero
 
 summary(model00)
+summary(model0r)
 summary(model0a)
 summary(model0b)
 summary(model0c)
@@ -1312,6 +1358,7 @@ summary(model0k)
 summary(model0l)
 summary(model0m)
 summary(model0n)
+summary(model0o)
 
 # Visualize the crossover here between den_id and den_status - 
 # don't want perfect 1:1 correlation otherwise you get 
