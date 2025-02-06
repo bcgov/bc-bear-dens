@@ -67,7 +67,7 @@ retirement_buffer <- 5 # 5 years
 # Run tar_make() to execute the pipeline
 list(
   #tar_target(bcgw_keys, bcgw_set_keys()), # need a better way to handle this... if the keys aren't set, the pipeline will fail
-  # Query BCGW
+  #### Query BCGW ####
   tar_target(test_poly, test_bcgw()),
   tar_target(regions, read_regions()), # a very simple WKT shapefile that defines the Haida Gwaii region vs. VI region
   tar_target(hg_vri, query_hg_vri(regions)),
@@ -75,23 +75,39 @@ list(
   tar_target(hg_vi_roads, query_basemapping_roads(regions)),
   tar_target(hg_vi_forestry_sections, query_forestry_roads(regions)),
   tar_target(hg_vi_private_land, query_private_land(regions)),
-  # Query AGOL
+  #### Query AGOL ####
   tar_target(dens_raw, fetch_bears(token = token, layer = "current")),
   tar_target(f_raw, fetch_bears(token = token, layer = "field visits")),
   tar_target(p_raw, fetch_bears(token = token, layer = "potential")),
   tar_target(backup, backup_bears(dens_raw, f_raw, p_raw)), # Even if token changes, if dens, f, and p don't change, it won't create a backup!
-  # Clean AGOL (keep separate from raw so as to save original colnames & data, in case cleaning causes data issue)
+  #### Clean AGOL ####
+  # (keep separate from raw so as to save original colnames & data, in case cleaning causes data issue)
   tar_target(dens, clean_bears(dens_raw)),
   tar_target(f, clean_bears(f_raw)),
   tar_target(p, clean_bears(p_raw)),
-  # Create f_full
+  #### Create f_full ####
   tar_target(f_full, sf::st_as_sf(merge(f, dens, by = "den_id")) |> sf::st_transform(3005)),
-  # Prepare GIS layers for FVL creation
+  #### Prepare GIS layers for FVL creation ####
   tar_target(vri, merge_bcgw_lyrs(bcgw_list = list(hg_vri, vi_vri)) |>
                sf::st_as_sf(wkt = "wkt_geom", crs = 3005)),
   tar_target(deps, load_depletions(regions = regions)),
   tar_target(roads, merge_bcgw_lyrs(bcgw_list = list(hg_vi_roads, hg_vi_forestry_sections)) |>
                sf::st_as_sf(wkt = "wkt_geom", crs = 3005)),
+  #### Generate random samples ####
+  # Within the same study area as the dens themselves, generate
+  # a random sample of points to use as a random control to compare
+  # random control forestry data to den forestry data. How representative
+  # of forestry operations is our den data? Does it skew one way or another?
+  tar_target(study_area, generate_study_area(fvl = FVL_2024,
+                                             private_land = hg_vi_private_land)),
+  # Generate 180 random points within study area
+  # N = 180 because that's the approximate number of
+  # unique dens within the study overall
+  tar_target(pseudo_dens, generate_random_dens(study_area = study_area, 
+                                               years = c(2020:2024), # generate fake data just for the years 2020-2024
+                                               n_dens = 180, # generate 180 fake dens - that's approx. how many dens are in our actual dataset
+                                               random_seed = 24)), # set a random seed so the same lat/longs are generated each time. Otherwise the pipeline will constantly be triggered to re-run
+  #### Create FVLs ####
   # Actually create FVLs (will take ~5-6 hours)
   # TODO wishlist item: organize the pipeline to track each yearly VRI 
   # and yearly depletion layers, so that the FVL is only re-created
@@ -100,39 +116,64 @@ list(
   tar_target(f_geom, f_full |> # Create an object that is JUST sample_id + sf geometry to run the verifications on. Otherwise, this pipeline gets triggered each time there's a simple data change to any of the text columns.
                dplyr::mutate(year = lubridate::year(date_inspected)) |> 
                dplyr::select(den_id, sample_id, date_inspected)), 
+  #### Run forestry verifications ####
   # Run tar_map() - i.e., for each year as defined above in `fvl_years`,
   # run the following 4 functions: create_fvl(), verify_forestry(), 
   # st_proportion_age_class(), and st_road_buffer()
   mapped <- tar_map(
     values = fvl_years, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
-    # Create FVLs for each ayear
+    # 1. Create FVLs for each year
     tar_target(FVL,
                create_fvl(den_year = years, # `years` in this case refers to the `years` column in `fvl_years` df
                           vri = vri,
                           depletions = deps)
-    ),
-    # Run forestry verification algorithms (% forested 60m, dist <40yo forest, dist >40yo forest, dist road) for each year
+               ),
+    ## ACTUAL DATA ##
+    # 2. Run forestry verification algorithms (% forested 60m, dist <40yo forest, dist >40yo forest, dist road) for each year
     tar_target(forestry_verification,
                verify_forestry(feature = f_geom,
                                fvl = FVL, # referring to the target `FVL` created in the previous step
                                roads = roads,
                                year = years, # `years` in this case refers to the `years` column in `fvl_years` df
-                               retirement_buffer = retirement_buffer, # years buffer to add to road retirement date to still include recently retired, but still driveable, roads in verification checks
+                               retirement_buffer = retirement_buffer # years buffer to add to road retirement date to still include recently retired, but still driveable, roads in verification checks
                )),
-    # % age class around each den
+    # 3. % age class around each den
     tar_target(prct_age_class_yearly,
                st_proportion_age_class(feature = f_geom[lubridate::year(f_geom$date_inspected) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
                                        buffer = 1500,
                                        vri = vri,
                                        depletions = deps)),
-    # Road density around each den
+    # 4. Road density around each den
     tar_target(road_density_yearly,
                st_road_density(feature = f_geom[lubridate::year(f_geom$date_inspected) == years, ],
                                roads = roads,
                                filter_by_date = FALSE,
                                filter_by_year = TRUE,
+                               retirement_buffer = retirement_buffer)),
+    ## PSEUDO DATA ##
+    # 5. Run forestry verification algorithms (% forested 60m, dist <40yo forest, dist >40yo forest, dist road) for each year
+    tar_target(pseudo_forestry_verification,
+               verify_forestry(feature = pseudo_dens,
+                               fvl = FVL, # grab correct FVL_<year> from the `values` df
+                               roads = roads,
+                               year = years, # `years` in this case refers to the `years` column in `fvl_years` df
+                               retirement_buffer = retirement_buffer, # years buffer to add to road retirement date to still include recently retired, but still driveable, roads in verification checks
+               )),
+    # 6. % age class around each den
+    tar_target(pseudo_prct_age_class_yearly,
+               st_proportion_age_class(feature = pseudo_dens[lubridate::year(pseudo_dens$date_inspected) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
+                                       buffer = 1500,
+                                       vri = vri,
+                                       depletions = deps)),
+    # 7. Road density around each den
+    tar_target(pseudo_road_density_yearly,
+               st_road_density(feature = pseudo_dens[lubridate::year(pseudo_dens$date_inspected) == years, ],
+                               roads = roads,
+                               filter_by_date = FALSE,
+                               filter_by_year = TRUE,
                                retirement_buffer = retirement_buffer))
   ),
+  #### Merge forestry verifications ####
   # Combine all the fruits of our labor into one df!
   tar_combine(forestry_verifications_full,
               mapped[[2]], # merge the second item in `mapped` ('forestry_verification') into one df 
@@ -143,7 +184,16 @@ list(
   tar_combine(road_density,
               mapped[[4]], # merge the fourth item in `mapped` ('road_density_yearly') into one df
               command = dplyr::bind_rows(!!!.x) |> dplyr::arrange(den_id, year)),
-  # Data QC
+  tar_combine(pseudo_forestry_verifications_full,
+              mapped[[5]], # merge the second item in `mapped` ('forestry_verification') into one df 
+              command = dplyr::bind_rows(!!!.x)),
+  tar_combine(pseudo_prct_age_class_1.5km,
+              mapped[[6]], # merge the third item in `mapped` ('prct_age_class_yearly') into one df
+              command = dplyr::bind_rows(!!!.x) |> dplyr::arrange(den_id, year)),
+  tar_combine(pseudo_road_density,
+              mapped[[7]], # merge the fourth item in `mapped` ('road_density_yearly') into one df
+              command = dplyr::bind_rows(!!!.x) |> dplyr::arrange(den_id, year)),
+  #### Data QC flags ####
   # Non-forestry column QC checks
   tar_target(nonforest_qc, verify_bears(dens, f)),
   # Compare forestry verifications to legacy verifications and raw data

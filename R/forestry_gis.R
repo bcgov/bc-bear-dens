@@ -43,6 +43,7 @@ create_fvl <- function(den_year, vri, depletions) {
   # If den_year > vri_year, use 2023 vri data, but just flash a warning
   # that the forestry data might not be up-to-date.
   if (vri_year < den_year) {
+    orig_den_year <- den_year
     warning("The VRI data (", vri_year, ") is older than your den year (", den_year, "). Forestry verifications for ", den_year, " may be inaccurate.")
     den_year <- vri_year
   }
@@ -156,7 +157,11 @@ create_fvl <- function(den_year, vri, depletions) {
   # Ensure the result spits out a (multi)polygon
   out <- sf::st_collection_extract(out, "POLYGON")
   
-  out$year <- den_year
+  if (exists("orig_den_year")) {
+    out$year <- orig_den_year
+  } else {
+    out$year <- den_year 
+  }
   
   return(out)
   
@@ -250,6 +255,9 @@ st_proportion_age_class <- function(feature, buffer = 1500, feature_date_col = "
   stopifnot("`depletions` must be a sf class geometry." = inherits(depletions, "sf"))
   stopifnot("`depletions` must be a sf class MULTIPOLYGON or POLYGON geometry." = any(sf::st_geometry_type(depletions) %in% c('MULTIPOLYGON', 'POLYGON')))
   stopifnot("Your VRI layer and depletions layer are a different CRS." = sf::st_crs(vri) == sf::st_crs(depletions))
+  
+  # If an empty feature was passed to this function (e.g., in a loop), return NA object
+  if (nrow(feature) == 0) return(NULL)
   
   # Assume each row is a unique feature
   # This is necessary to do bc some dens/sample ids are duplicated, so if 
@@ -451,6 +459,9 @@ st_road_density <- function(feature,
   #stopifnot("`roads` must be a sf class LINESTRING geometry." = all(sf::st_geometry_type(roads) %in% 'LINESTRING'))
   stopifnot("`feature` must be in the same CRS as `roads`." = sf::st_crs(feature) == sf::st_crs(roads))
   
+  # If an empty feature was passed to this function (e.g., in a loop), return NA object
+  if (nrow(feature) == 0) return(NULL) 
+  
   # Remove ferry routes
   roads <- roads[which(roads$fcode != "AQ10800000"),]
   
@@ -474,14 +485,14 @@ st_road_density <- function(feature,
                                               TRUE ~ 7.5))
   
   if (filter_by_date) {
-    stopifnot("Can only evaluate distance to road for one feature at a time if `filter_by_date == TRUE`" = length(feature) == 1)
+    stopifnot("Can only evaluate road density for one feature at a time if `filter_by_date == TRUE`" = length(feature) == 1)
     sql_query <- query_roads(den_date = feature[[date_col]],
                              retirement_buffer = retirement_buffer)
     roads <- tidyquery::query(sql = sql_query)
   } else if (filter_by_year) { 
     # TODO: handle year vs day filter a bit better, somehow. It's confusing and error prone as-is.
     f_year <- unique(lubridate::year(feature[[date_col]]))
-    stopifnot("Can only evaluate distance to road for one year at a time if `filter_by_year == TRUE`" = length(f_year) == 1)
+    stopifnot("Can only evaluate road density for one year at a time if `filter_by_year == TRUE`" = length(f_year) == 1)
     sql_query <- query_roads(den_date = paste0(as.character(f_year), "-12-31"),
                              retirement_buffer = retirement_buffer)
     roads <- tidyquery::query(sql = sql_query)
@@ -568,7 +579,7 @@ verify_forestry <- function(feature, fvl, roads,
   if (year != 2024) stopifnot("The FVL year and supplied `year` do not match!" = unique(fvl$year) == year)
   # Subset `feature` to the correct year
   feature <- feature[which(lubridate::year(feature[[date_col]]) == year), ]
-  if(nrow(feature) == 0) stop("There are no features in the year ", year)
+  if(nrow(feature) == 0) return(NULL) #stop("There are no features in the year ", year) # silently return NA in cases where feature may be empty (e.g., in loop)
   # Check if roads supplied
   if(missing(roads)) stop("`roads` is required")
   # Run the verifications
