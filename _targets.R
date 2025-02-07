@@ -201,7 +201,15 @@ list(
   # Summarize forestry verification results
   tar_target(forest_qc_summary, summarize_verifications(f_v = forest_qc)),
   # Organize the dens into a fix priority list based on the number of flags it tripped
-  tar_target(den_fix_priority, prioritize_den_checks(f_v = forest_qc))
+  tar_target(den_fix_priority, prioritize_den_checks(f_v = forest_qc)),
+  #### Re-arrange field visits data ####
+  # The den status of year X should actually be paired with 
+  # the forestry data of year (X-1) - the *previous* year's 
+  # forestry data would have theoretically influenced the 
+  # *current* year's den status. This function rearranges
+  # the data to merge last year's forestry data with this
+  # year's den status. 
+  tar_target(f_analysis, wrangle_bears(f))
   # Summary statistics
   # For now, these summary stats scripts live in the "Data summary" folder
   # and haven't been incorporated into the targets pipeline directly.

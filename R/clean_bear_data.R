@@ -395,3 +395,65 @@ verify_bears <- function(dens, f) {
   return(f)
   
 }
+
+
+
+
+
+# The den status of year X should actually be paired with 
+# the forestry data of year (X-1) - the *previous* year's 
+# forestry data would have theoretically influenced the 
+# *current* year's den status. This function rearranges
+# the data to merge last year's forestry data with this
+# year's den status. 
+wrangle_bears <- function(f) {
+  # Drop any records where there may have been more than
+  # one den visit within the year
+  f$year <- lubridate::year(f$date_inspected)
+  
+  # This is done manually. Can always be revisited down
+  # the line if need be.
+  # f |> 
+  #   dplyr::group_by(den_id, year) |> 
+  #   dplyr::summarise(N = dplyr::n()) |>
+  #   dplyr::filter(N > 1)
+  
+  # Inspect each den + year combo, and determine which ones to cull
+  # Just going off whichever ones have more complete data/fewer NAs
+  # f[f$den_id == "COU_AlberniInlet_1" & f$year == 2020, ] # cut COU_AlberniInlet_1_20200129
+  # f[f$den_id == "ROS_ChefCreek_1" & f$year == 2021, ] # cut ROS_ChefCreek_1_20210531
+  f[["v_distance_less40yr_forest"]][f$sample_id == "ROS_ChefCreek_1_20210903"] <- 400 # Quick manual fix... TODO: update actual data and delete this from the code
+  # f[f$den_id == "SKI_JakesLanding_1" & f$year == 2024, ] # cut SKI_JakesLanding_1_20240609
+  # f[f$den_id == "TSI_MountRussell_7" & f$year == 2021, ] # cut TSI_MountRussell_7_20210916
+  
+  # Cut 'em
+  f <- f[!(f$sample_id %in% c("COU_AlberniInlet_1_20200129","ROS_ChefCreek_1_20210531", "SKI_JakesLanding_1_20240609", "TSI_MountRussell_7_20210916")), ]
+  
+  # Next we want to wrangle the data such that the den status from
+  # the current year is matched to the forestry data from the 
+  # previous year.
+  
+  # Arrange data by den_id + year, for convenience
+  f <- f[order(f$den_id, f$year),]
+  
+  # We're going to do this in a simple way... chop the data in half vertically,
+  # so we have f_a: den info and f_b: forestry info. 
+  f_a <- dplyr::select(f, den_id, sample_id, date_inspected, year,
+                       bedding_cup_present, bed_depth, bed_width,
+                       bed_length, hair_on_entrance, 
+                       hair_in_bed, den_status)
+  f_b <- dplyr::select(f, den_id, sample_id, date_inspected, year,
+                       forestry_treatment_desc:v_distance_nearest_road)
+  
+  # Next, subtract -1 from the den status year - since it's technically
+  # whether or not the den was occupied in the *last* year
+  f_a$year <- f_a$year - 1
+  
+  # Now merge the two back together on den_id and year
+  # It's gonna cut a lot of data out
+  f <- merge(f_a, f_b, by = c("den_id", "year"), suffixes = c("_den", "_forest")) 
+  
+  return(f)
+}
+
+
