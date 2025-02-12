@@ -2020,6 +2020,13 @@
       ],
       "Hash": "54388cc0cf3dfc0948a4bfbf9e8cceba"
     },
+    "nanoarrow": {
+      "Package": "nanoarrow",
+      "Version": "0.6.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "4246de9f96efbedd51e6ae8b919d6b9a"
+    },
     "nlme": {
       "Package": "nlme",
       "Version": "3.1-166",
@@ -2615,6 +2622,21 @@
       ],
       "Hash": "062470668513dcda416927085ee9bdc7"
     },
+    "rnaturalearth": {
+      "Package": "rnaturalearth",
+      "Version": "1.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "httr",
+        "jsonlite",
+        "sf",
+        "terra",
+        "utils"
+      ],
+      "Hash": "741166cab0fe76d8a5670d3ee459a2a4"
+    },
     "rpart": {
       "Package": "rpart",
       "Version": "4.1.23",
@@ -3018,7 +3040,7 @@
     },
     "terra": {
       "Package": "terra",
-      "Version": "1.7-78",
+      "Version": "1.8-21",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -3026,7 +3048,7 @@
         "Rcpp",
         "methods"
       ],
-      "Hash": "8f020def0792119cb98bd8f696dab22d"
+      "Hash": "ee46c9428db7a1bbc03b3c2f55016f94"
     },
     "tibble": {
       "Package": "tibble",
