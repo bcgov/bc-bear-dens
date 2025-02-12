@@ -264,3 +264,62 @@ query_private_land <- function(regions) {
     dplyr::summarise()
   return(private_lands)
 }
+
+
+
+#### QUERY PARK LANDS ####
+
+# Base Mapping - Provincial/Tantalis 'All' Parks
+
+query_tantalis_parks <- function(regions) {
+  # Function health checks
+  stopifnot("`regions` must be an `sf` object with POLYGON geometery." = all(sf::st_is(regions, "POLYGON")))
+  # Connect to db
+  drv <- prepare_jdbc()
+  conn <- connect_bcgw(drv)
+  # Create query
+  # NOTE in this table, the geometry column is called 'shape'!
+  spatial_query <- paste0("SELECT PROTECTED_LANDS_NAME, PROTECTED_LANDS_CODE, PROTECTED_LANDS_DESIGNATION, 
+                         SDO_UTIL.TO_WKTGEOMETRY(shape) as WKT_GEOM 
+                         from WHSE_TANTALIS.TA_PARK_ECORES_PA_SVW
+                         WHERE sdo_anyinteract(shape,
+                               sdo_geometry('", regions[['WKT']][regions$region == 'HG'], "', 3005)
+                               ) = 'TRUE'
+                        OR sdo_anyinteract(shape,
+                               sdo_geometry('", regions[['WKT']][regions$region == 'VI'], "', 3005)
+                               ) = 'TRUE'")
+  # Execute query
+  out_poly <- DBI::dbGetQueryArrow(conn, spatial_query)
+  out_poly <- as.data.frame(out_poly) # this sort of defeats the purpose of arrow, but can't figure out how to make it play nice with targets atm
+  # Exit
+  on.exit(DBI::dbDisconnect(conn, shutdown = TRUE))
+  return(out_poly)
+}
+
+
+
+# Base Mapping - Federal Parks
+
+query_federal_parks <- function(regions) {
+  # Function health checks
+  stopifnot("`regions` must be an `sf` object with POLYGON geometery." = all(sf::st_is(regions, "POLYGON")))
+  # Connect to db
+  drv <- prepare_jdbc()
+  conn <- connect_bcgw(drv)
+  # Create query
+  spatial_query <- paste0("SELECT NATIONAL_PARK_ID, ENGLISH_NAME, 
+                         SDO_UTIL.TO_WKTGEOMETRY(geometry) as WKT_GEOM 
+                         from WHSE_ADMIN_BOUNDARIES.CLAB_NATIONAL_PARKS
+                         WHERE sdo_anyinteract(geometry,
+                               sdo_geometry('", regions[['WKT']][regions$region == 'HG'], "', 3005)
+                               ) = 'TRUE'
+                        OR sdo_anyinteract(geometry,
+                               sdo_geometry('", regions[['WKT']][regions$region == 'VI'], "', 3005)
+                               ) = 'TRUE'")
+  # Execute query
+  out_poly <- DBI::dbGetQueryArrow(conn, spatial_query)
+  out_poly <- as.data.frame(out_poly) # this sort of defeats the purpose of arrow, but can't figure out how to make it play nice with targets atm
+  # Exit
+  on.exit(DBI::dbDisconnect(conn, shutdown = TRUE))
+  return(out_poly)
+}

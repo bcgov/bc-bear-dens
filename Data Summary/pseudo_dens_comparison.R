@@ -19,7 +19,6 @@ f <- tar_read(f_analysis) # den field visits, re-arranged such that last year's 
 tar_load(dens) # den spatial/static data
 tar_load(pseudo_dens) # pseudo den points
 
-# TODO: double check this with fresh brain
 # First, for the pseudo den data, we're going to make
 # the same assumption as for the real data - this year's
 # den status needs to be paired with last year's forestry.
@@ -27,7 +26,7 @@ tar_load(pseudo_dens) # pseudo den points
 # data runs from 2019-2023, rather than 2020-2024, 
 # because then it will line up with our real data (which
 # only runs until 2023.)
-# pseudo_dens$year <- pseudo_dens$year + 1
+pseudo_dens$year <- pseudo_dens$year + 1
 
 # Merge spatial/static den data with field visits
 f <- merge(dens, f, by = "den_id")
@@ -79,6 +78,33 @@ for_sure_dens <- c("Active in last denning season",
 
 ##### Map #####
 
+# Pull our parks shapefiles
+parks1 <- tar_read(hg_vi_tantalis_parks)
+parks2 <- tar_read(hg_vi_federal_parks)
+
+names(parks2)[2] <- "PROTECTED_LANDS_NAME"
+parks2$PROTECTED_LANDS_DESIGNATION <- "FEDERAL PARK"
+
+parks <- dplyr::bind_rows(parks1, parks2)
+parks <- st_as_sf(parks, wkt = "WKT_GEOM")
+st_crs(parks) <- 3005
+names(parks)[5] <- "geometry" # rename geometry column
+st_geometry(parks) <- "geometry"
+names(parks) <- tolower(names(parks))
+
+rm(parks1, parks2)
+
+# Intersect parks with dens/pseudo_dens, so we know how
+# many pseudo dens were generated inside park lands
+pseudo_dens$in_park <- FALSE
+pseudo_dens[["in_park"]][unlist(st_intersects(parks, pseudo_dens))] <- TRUE
+
+f$in_park <- FALSE
+f[["in_park"]][unlist(st_intersects(parks, f))] <- TRUE
+
+sum(pseudo_dens$in_park) / nrow(pseudo_dens)
+sum(f$in_park) / nrow(f)
+
 # And finally pull a shapefile of our study area
 tar_load(study_area)
 
@@ -100,10 +126,21 @@ bc <- st_crop(bc, bbox) # crop to our bounding box area
 # ggplot() +
 #   geom_sf(data = bc, fill = "grey") +
 #   geom_sf(data = study_area, fill = "darkgrey") +
-#   geom_sf(data = pseudo_dens, color = "black", stroke = NA, alpha = 0.3, size = 10) +
-#   geom_sf(data = f, color = "purple", stroke = NA, size = 0.1) +
+#   geom_sf(data = parks, fill = "lightgreen", alpha = 0.4) +
+#   geom_sf(data = pseudo_dens, 
+#           aes(shape = in_park),
+#           stroke = NA, 
+#           alpha = 0.3, 
+#           size = 0.2) +
+#   geom_sf(data = f, 
+#           aes(shape = in_park),
+#           color = "purple", 
+#           stroke = NA, 
+#           size = 0.2) +
 #   coord_sf(xlim = c(bbox[1], bbox[3]),
-#            ylim = c(bbox[2], bbox[4]))
+#            ylim = c(bbox[2], bbox[4])) +
+#   theme(legend.position = "none") +
+#   labs(caption = "Triangle shape indicates the den falls within a provincial/federal park or protected area.")
 
 
 
@@ -224,7 +261,7 @@ full$sample_id <- ifelse(is.na(full$sample_id), full$sample_id_den, full$sample_
 full <- full |> 
   dplyr::select(sample_id, den_id, type, year,
                 den_status, den_status_binary,
-                region, latitude, longitude,
+                region, latitude, longitude, in_park,
                 prop_forest_60m, dist_lt40, dist_gt40, dist_road,
                 age_class_1:road_density_m2)
 
@@ -232,6 +269,9 @@ full <- full |>
 full <- full[which(full$year %in% c(2019:2024)), ]
 
 full <- na.omit(full)
+
+# Rename park variable so it's easier to tell what it is on plots
+full$in_park <- ifelse(full$in_park, "in_park", "not_in_park")
 
 
 ##### Distance from edge #####
@@ -308,6 +348,7 @@ ggplot(full,
 ##### % forested #####
 # Binary categories
 
+# Den status vs % forested
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, type), 
              y = prop_forest_60m,
@@ -319,7 +360,7 @@ full[which(full$den_status %in% for_sure_dens), ] |>
               map_signif_level = TRUE) +
   theme_minimal() +
   labs(x = "Den Status",
-       y = "Proportion Forested (GIS verified field values)",
+       y = "Proportion Forested (GIS verified values)",
        title = "Den Status vs. % Forested (GIS verified)",
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'")
 
@@ -334,7 +375,40 @@ full |>
   scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
                     name = "Den Status") +
   facet_wrap(~ type) +
-  labs(x = "Proportion Forested (GIS verified field values)",
+  labs(x = "Proportion Forested (GIS verified values)",
+       y = "Density",
+       caption = "'For sure' categories binned into either 'Active' or 'Not active'") +
+  theme_minimal()
+
+
+# Vs. In park or not
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = prop_forest_60m,
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Park Status",
+       y = "Proportion Forested (GIS verified values)",
+       title = "Park Status vs. % Forested (GIS verified)",
+       subtitle = "'For sure' categories binned into either 'Active' or 'Not active'")
+
+
+full |>
+  ggplot(aes(x = prop_forest_60m,
+             color = in_park,
+             fill = in_park)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Park Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Park Status") +
+  facet_wrap(~ type) +
+  labs(x = "Proportion Forested (GIS verified values)",
        y = "Density",
        caption = "'For sure' categories binned into either 'Active' or 'Not active'") +
   theme_minimal()
@@ -343,9 +417,10 @@ full |>
 
 ##### dist <40 #####
 
+# Den status vs dist lt 40
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, type), 
-             y = dist_lt40,
+             y = (dist_lt40 + 1),
              color = type)) +
   geom_boxplot() +
   geom_jitter() +
@@ -353,11 +428,11 @@ full[which(full$den_status %in% for_sure_dens), ] |>
                                  c("Active.Real", "Not active.Real")), 
               map_signif_level = TRUE) +
   theme_minimal() +
-  scale_y_continuous(trans = 'log10') +
-  annotation_logticks() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
   labs(x = "Den Status",
-       y = "log Distance to <40 (GIS verified field values)",
-       title = "Den Status vs. Distance to <40 yo forest (GIS verified field values)",
+       y = "log Distance to <40 (GIS verified values)",
+       title = "Den Status vs. Distance to <40 yo forest (GIS verified values)",
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'") 
 
 
@@ -366,7 +441,7 @@ psych::describeBy(full$dist_lt40,
                   mat = TRUE)
 
 full |>
-  ggplot(aes(x = dist_lt40,
+  ggplot(aes(x = (dist_lt40 + 1),
              color = den_status_binary,
              fill = den_status_binary)) +
   geom_density(alpha = 0.1) +
@@ -374,8 +449,47 @@ full |>
                      name = "Den Status") +
   scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
                     name = "Den Status") +
+  scale_x_continuous(trans = "log10") +
+  annotation_logticks(side = "b") +
   facet_wrap(~ type) +
-  labs(x = "Distance to <40 yo forest (GIS verified field values)",
+  labs(x = "Distance to <40 yo forest (GIS verified values)",
+       y = "Density",
+       caption = "'For sure' categories binned into either 'Active' or 'Not active'") +
+  theme_minimal()
+
+
+# Vs. In park or not
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = (dist_lt40 + 1),
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Park Status",
+       y = "Distance to <40 yo forest (GIS verified values)",
+       title = "Park Status vs. Distance to <40 yo forest (GIS verified)",
+       subtitle = "'For sure' categories binned into either 'Active' or 'Not active'")
+
+
+full |>
+  ggplot(aes(x = (dist_lt40 + 1),
+             color = in_park,
+             fill = in_park)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Park Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Park Status") +
+  scale_x_continuous(trans = "log10") +
+  annotation_logticks(side = "b") +
+  facet_wrap(~ type) +
+  labs(x = "Distance to <40 yo forest (GIS verified values)",
        y = "Density",
        caption = "'For sure' categories binned into either 'Active' or 'Not active'") +
   theme_minimal()
@@ -384,10 +498,10 @@ full |>
 
 ##### dist >40 #####
 
-
+# Den status vs dist gt 40
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, type), 
-             y = dist_gt40,
+             y = (dist_gt40 + 1),
              color = type)) +
   geom_boxplot() +
   geom_jitter() +
@@ -398,12 +512,12 @@ full[which(full$den_status %in% for_sure_dens), ] |>
   scale_y_continuous(trans = 'log10') +
   annotation_logticks() +
   labs(x = "Den Status",
-       y = "log Distance to >40 (GIS verified field values)",
-       title = "Den Status vs. Distance to >40 yo forest (GIS verified field values)",
+       y = "log Distance to >40 (GIS verified values)",
+       title = "Den Status vs. Distance to >40 yo forest (GIS verified values)",
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'") 
 
 full |>
-  ggplot(aes(x = dist_gt40,
+  ggplot(aes(x = (dist_gt40 + 1),
              color = den_status_binary,
              fill = den_status_binary)) +
   geom_density(alpha = 0.1) +
@@ -411,8 +525,47 @@ full |>
                      name = "Den Status") +
   scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
                     name = "Den Status") +
+  scale_x_continuous(trans = "log10") +
+  annotation_logticks(side = "b") +
   facet_wrap(~ type) +
-  labs(x = "Distance to >40 yo forest (GIS verified field values)",
+  labs(x = "Distance to >40 yo forest (GIS verified values)",
+       y = "Density",
+       caption = "'For sure' categories binned into either 'Active' or 'Not active'") +
+  theme_minimal()
+
+
+# Vs. In park or not
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = (dist_gt40 + 1),
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Park Status",
+       y = "Distance to >40 yo forest (GIS verified values)",
+       title = "Park Status vs. Distance to >40 yo forest (GIS verified)",
+       subtitle = "'For sure' categories binned into either 'Active' or 'Not active'")
+
+
+full |>
+  ggplot(aes(x = (dist_gt40 + 1),
+             color = in_park,
+             fill = in_park)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Park Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Park Status") +
+  scale_x_continuous(trans = "log10") +
+  annotation_logticks(side = "b") +
+  facet_wrap(~ type) +
+  labs(x = "Distance to >40 yo forest (GIS verified values)",
        y = "Density",
        caption = "'For sure' categories binned into either 'Active' or 'Not active'") +
   theme_minimal()
@@ -420,9 +573,10 @@ full |>
 
 ##### dist to nearest road #####
 
+# Den status vs dist road
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, type), 
-             y = dist_road,
+             y = (dist_road + 1),
              color = type)) +
   geom_boxplot() +
   geom_jitter() +
@@ -433,16 +587,36 @@ full[which(full$den_status %in% for_sure_dens), ] |>
   scale_y_continuous(trans = 'log10') +
   annotation_logticks() +
   labs(x = "Den Status",
-       y = "log Distance to nearest road (GIS verified field values)",
-       title = "Den Status vs. Distance to nearest road (GIS verified field values)",
+       y = "log Distance to nearest road (GIS verified values)",
+       title = "Den Status vs. Distance to nearest road (GIS verified values)",
+       subtitle = "'For sure' categories binned into either 'Active' or 'Not active'")
+
+
+# Vs. in park or not
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = (dist_road + 1),
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  scale_y_continuous(trans = 'log10') +
+  annotation_logticks() +
+  labs(x = "Park Status",
+       y = "log Distance to nearest road (GIS verified values)",
+       title = "Park Status vs. Distance to nearest road (GIS verified values)",
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'")
 
 
 ##### distance to edge #####
 
+# Den status vs dist to edge
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, type), 
-             y = dist_from_edge,
+             y = (dist_from_edge + 1),
              color = type)) +
   geom_boxplot() +
   geom_jitter() +
@@ -453,14 +627,14 @@ full[which(full$den_status %in% for_sure_dens), ] |>
   scale_y_continuous(trans = 'log10') +
   annotation_logticks() +
   labs(x = "Den Status",
-       y = "log Distance to forest edge (GIS verified field values)",
-       title = "Den Status vs. Distance to forest edge (GIS verified field values)",
+       y = "log Distance to forest edge (GIS verified values)",
+       title = "Den Status vs. Distance to forest edge (GIS verified values)",
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'")
 
 
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, age), 
-             y = dist_from_edge,
+             y = (dist_from_edge + 1),
              color = age)) +
   geom_boxplot() +
   geom_jitter() +
@@ -472,10 +646,29 @@ full[which(full$den_status %in% for_sure_dens), ] |>
   scale_y_continuous(trans = 'log10') +
   annotation_logticks() +
   labs(x = "Den Status",
-       y = "log Distance to forest edge (RAW)",
-       title = "Den Status vs. Distance to forest edge (RAW field values)",
+       y = "log Distance to forest edge (GIS verified)",
+       title = "Den Status vs. Distance to forest edge (GIS verified values)",
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+# Vs. In park or not
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = (dist_from_edge + 1),
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  scale_y_continuous(trans = 'log10') +
+  annotation_logticks() +
+  labs(x = "Park Status",
+       y = "log Distance to forest edge (GIS verified values)",
+       title = "Park Status vs. Distance to forest edge (GIS verified values)",
+       subtitle = "'For sure' categories binned into either 'Active' or 'Not active'")
 
 
 ##### latitude #####
@@ -585,7 +778,7 @@ pseudo_prct |>
   theme_minimal()
 
 
-
+# Den status vs % old growth
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, type), 
              y = gt_8,
@@ -605,7 +798,7 @@ full[which(full$den_status %in% for_sure_dens), ] |>
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'",
        caption = "% age class >= 8 by area within 1.5 km of the den") 
 
-
+# Den status vs % new growth
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, type), 
              y = lt_3,
@@ -626,11 +819,55 @@ full[which(full$den_status %in% for_sure_dens), ] |>
        caption = "% age class <= 3 by area within 1.5 km of the den")
 
 
+
+# In park vs % old growth
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = gt_8,
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  #annotation_logticks(side = "l") +
+  facet_wrap(~ region + type,
+             scales = "free") +
+  labs(x = "Park Status",
+       y = "% old growth",
+       title = "Park Status vs. % old growth",
+       subtitle = "'For sure' categories binned into either 'Active' or 'Not active'",
+       caption = "% age class >= 8 by area within 1.5 km of the den") 
+
+# In park vs % new growth
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = lt_3,
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  #annotation_logticks(side = "l") +
+  facet_wrap(~ region + type,
+             scales = "free") +
+  labs(x = "Park Status",
+       y = "% fresh cut",
+       title = "Park Status vs. % fresh cut",
+       subtitle = "'For sure' categories binned into either 'Active' or 'Not active'",
+       caption = "% age class <= 3 by area within 1.5 km of the den")
+
+
 ##### road density #####
 
+
+# Den status vs road density
 full[which(full$den_status %in% for_sure_dens), ] |>
   ggplot(aes(x = interaction(den_status_binary, type),
-             y = road_density_m2,
+             y = (road_density_m2 + 0.0001),
              color = type)) +
   geom_jitter() +
   geom_boxplot(fill = NA) + 
@@ -645,4 +882,25 @@ full[which(full$den_status %in% for_sure_dens), ] |>
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'",
        caption = "m2 of road surface within 1.5 km of the den") +
   theme_minimal()
+
+
+# Vs. In park or not
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type),
+             y = (road_density_m2 + 0.0001),
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  scale_y_log10() +
+  annotation_logticks(side = "l") +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")),
+              map_signif_level = TRUE) +
+  labs(x = "Den Status",
+       y = "Road density",
+       title = "Den Status vs. Road Density",
+       subtitle = "'For sure' categories binned into either 'Active' or 'Not active'",
+       caption = "m2 of road surface within 1.5 km of the den") +
+  theme_minimal()
+
 

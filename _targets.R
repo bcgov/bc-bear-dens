@@ -33,7 +33,8 @@ library(tarchetypes) # Load other packages as needed.
 # Set target options:
 tar_option_set(
   packages = c("qs",
-               #"RJDBC", # You only need this if you're downloading GIS files off BCGW
+               "RJDBC", # You only need this if you're downloading GIS files off BCGW
+               "nanoarrow", # You only need this if you're downloading GIS files off BCGW
                "keyring",
                "DBI",
                "arrow",
@@ -75,6 +76,8 @@ list(
   tar_target(hg_vi_roads, query_basemapping_roads(regions)),
   tar_target(hg_vi_forestry_sections, query_forestry_roads(regions)),
   tar_target(hg_vi_private_land, query_private_land(regions)),
+  tar_target(hg_vi_tantalis_parks, query_tantalis_parks(regions)),
+  tar_target(hg_vi_federal_parks, query_federal_parks(regions)),
   #### Query AGOL ####
   tar_target(dens_raw, fetch_bears(token = token, layer = "current")),
   tar_target(f_raw, fetch_bears(token = token, layer = "field visits")),
