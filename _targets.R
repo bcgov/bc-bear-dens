@@ -78,6 +78,8 @@ list(
   tar_target(hg_vi_private_land, query_private_land(regions)),
   tar_target(hg_vi_tantalis_parks, query_tantalis_parks(regions)),
   tar_target(hg_vi_federal_parks, query_federal_parks(regions)),
+  #### Download DEM ####
+  tar_target(hg_vi_cded, query_cded(regions = regions, output_dir = "GIS/DEM"), format = "file"),
   #### Query AGOL ####
   tar_target(dens_raw, fetch_bears(token = token, layer = "current")),
   tar_target(f_raw, fetch_bears(token = token, layer = "field visits")),
@@ -107,7 +109,7 @@ list(
   # N = 180 because that's the approximate number of
   # unique dens within the study overall
   tar_target(pseudo_dens, generate_random_dens(study_area = study_area, 
-                                               years = c(2020:2024), # generate fake data just for the years 2020-2024
+                                               years = c(2019:2024), # generate fake data just for the years 2020-2024
                                                n_dens = 180, # generate 180 fake dens - that's approx. how many dens are in our actual dataset
                                                random_seed = 24)), # set a random seed so the same lat/longs are generated each time. Otherwise the pipeline will constantly be triggered to re-run
   #### Create FVLs ####
@@ -212,7 +214,10 @@ list(
   # *current* year's den status. This function rearranges
   # the data to merge last year's forestry data with this
   # year's den status. 
-  tar_target(f_analysis, wrangle_bears(f))
+  tar_target(f_analysis, wrangle_bears(f)),
+  #### Extract DEM attributes ####
+  tar_target(dens_dem, extract_dem(dens, cded_path = hg_vi_cded)),
+  tar_target(pseudo_dens_dem, extract_dem(pseudo_dens, cded_path = hg_vi_cded))
   # Summary statistics
   # For now, these summary stats scripts live in the "Data summary" folder
   # and haven't been incorporated into the targets pipeline directly.
