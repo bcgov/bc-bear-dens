@@ -13,6 +13,7 @@ create_fvl|function|50fd225eb018e6a5|||||||||||||||
 den_fix_priority|stem|18c7a7f11e9d826c|7d6f23d97a297478|91753a51dd819e98|1032555658||t20122.754030955s|812eab213ad5d36a|1224|qs|local|vector|||0.02||
 den_years|stem|744dad2a0685a8f0|3fc24f5ebdc4bb81|ae4d9914b9cdd4d9|559029640||t20075.7410422794s|530f140998b50d1c|112|qs|local|vector|||0||
 dens|stem|e08cf90d5928f2ff|cd17d2b24d452c25|f4218012e2f66d16|-500175898||t20109.0166688469s|d25c3212dd4fdf95|40765|qs|local|vector|||1.06||
+dens_age_class|stem|8e9fefa6a18702ce|384416fbb1c49940|22d4af59e31701ca|-222500373||t20131.9105974606s|d34e80d524d489f3|7498|qs|local|vector|||3.3|attribute variables are assumed to be spatially constant throughout all geometries|
 dens_dem|stem|90de905f700188ad|3397954f8f64dea8|ecacc9d9b5e23f8c|1614099065||t20131.847901316s|3cabaa4efc8e77a3|2519|qs|local|vector|||229.99||
 dens_raw|stem|259a689c95111289|65b3b7b2495f30e4|97eac835e5e74ac7|-1423372772||t20122.7230987477s|5b63a45892b8cff8|40985|qs|local|vector|||6.15||
 deps|stem|1994b0974a1e3f21|7bcb0a27f4662cef|d6595bf119b686cf|1095278719||t20075.8596603724s|c8258776c4411bdb|62464475|qs|local|vector|||8.81|attribute variables are assumed to be spatially constant throughout all geometries|
@@ -84,6 +85,7 @@ prct_age_class_yearly_2024|stem|88de7336bbf589e4|28d6f5994d93bfdc|ee4307d85566fa
 prepare_jdbc|function|8eb54f63c99b0147|||||||||||||||
 prioritize_den_checks|function|c210c7e7ddf1f7ab|||||||||||||||
 pseudo_dens|stem|e03a0acc9b1fde01|252817f02cbd288d|fe945981a3fa66ef|1763855051||t20131.0297700231s|db3141433ae9755e|9687|qs|local|vector|||2.13||
+pseudo_dens_age_class|stem|a2d0799e26035859|788341e13149b542|37580c03a6731a8f|1916222714||t20131.9106634052s|00c4f1e12427498a|8391|qs|local|vector|||3.58|attribute variables are assumed to be spatially constant throughout all geometries|
 pseudo_dens_dem|stem|30c131e460f16125|18fbe61688fd2257|ee2980ae5d5ba4f2|-692305879||t20131.8505646804s|248b2af4115ba972|6968|qs|local|vector|||229.77||
 pseudo_forestry_verification_2014|stem|3b56b8ffa0e62a6f|8aafa6529b4c2472|48eccbd850f87999|144088657||t20131.0358044264s|28e76c0917097715|38|qs|local|vector|||0.02||
 pseudo_forestry_verification_2015|stem|3b56b8ffa0e62a6f|b00eec6efdb08ae4|a719ad1bc606691b|1503031817||t20131.0358244643s|28e76c0917097715|38|qs|local|vector|||0||
@@ -152,6 +154,7 @@ road_density_yearly_2022|stem|917b603133adcc39|1173116c94e0cf7b|c0bb1267252a332a
 road_density_yearly_2023|stem|760da6000052328a|bd8fcfe497f80de5|c0bb1267252a332a|1354136694||t20125.68777379s|066e71906eb2c74a|3788|qs|local|vector|||38.14||
 road_density_yearly_2024|stem|0dabed9ff35aa511|24caced97028b561|c0bb1267252a332a|-1434823255||t20125.6882878799s|df7f06f70770e49e|4262|qs|local|vector|||43.37||
 roads|stem|a55de9a36f1f543d|b8b46d3781901541|914c971e10acd88c|1038729194||t20000.7440909865s|ef36e54c78c7c7eb|51721497|qs|local|vector|||5.63||
+st_age_class|function|333209bbd42a6972|||||||||||||||
 st_distance_nearest_road|function|bc4ba7edb7dd40b0|||||||||||||||
 st_proportion_age_class|function|321648f641f10586|||||||||||||||
 st_proportion_forested|function|c0e9f120a448a0b8|||||||||||||||

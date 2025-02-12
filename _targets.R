@@ -217,7 +217,16 @@ list(
   tar_target(f_analysis, wrangle_bears(f)),
   #### Extract DEM attributes ####
   tar_target(dens_dem, extract_dem(dens, cded_path = hg_vi_cded)),
-  tar_target(pseudo_dens_dem, extract_dem(pseudo_dens, cded_path = hg_vi_cded))
+  tar_target(pseudo_dens_dem, extract_dem(pseudo_dens, cded_path = hg_vi_cded)),
+  #### Extract VRI age class ####
+  # Note that this is status - it's just the age class of
+  # these points in 2023 (the year the VRI was projected to).
+  tar_target(dens_age_class, st_age_class(feature = f_full, 
+                                          id_col = "sample_id",
+                                          vri = vri)),
+  tar_target(pseudo_dens_age_class, st_age_class(feature = pseudo_dens, 
+                                                 id_col = "sample_id",
+                                                 vri = vri))
   # Summary statistics
   # For now, these summary stats scripts live in the "Data summary" folder
   # and haven't been incorporated into the targets pipeline directly.

@@ -543,6 +543,46 @@ st_road_density <- function(feature,
 }
 
 
+# Rather than proportion age class, just extract the
+# 2023 projected VRI age class for each feature point.
+# Note that this is static - it's the age class for 2023.
+st_age_class <- function(feature, id_col = "sample_id",
+                         vri, vri_year_col = "projected_date", 
+                         vri_age_class_col = "proj_age_class_cd_1") {
+  # Data health checks
+  stopifnot("`feature` must be a sf class geometry." = inherits(feature, "sf"))
+  stopifnot("`feature` must be a sf class POINT geometry." = sf::st_geometry_type(feature) %in% 'POINT')
+  stopifnot("`vri` must be a sf class geometry." = inherits(vri, "sf"))
+  stopifnot("`vri` must be a sf class MULTIPOLYGON or POLYGON geometry." = any(sf::st_geometry_type(vri) %in% c('MULTIPOLYGON', 'POLYGON')))
+  stopifnot("Your VRI layer and feature layer are a different CRS." = sf::st_crs(vri) == sf::st_crs(feature))
+  
+  
+  # If an empty feature was passed to this function (e.g., in a loop), return NA object
+  if (nrow(feature) == 0) return(NULL)
+  
+  # Extract feature year, vri year
+  #f1_year <- unique(lubridate::year(feature[[feature_date_col]]))
+  vri_year <- unique(lubridate::year(vri[[vri_year_col]]))
+  
+  #stopifnot("Can only do proportion forested calcs for one year at a time." = length(f1_year) == 1)
+  
+  # Ensure name of the geometry column is the same for all features
+  sf::st_geometry(feature) <- "geom"
+  sf::st_geometry(vri) <- "geom"
+  
+  # Subset feature to just ID column
+  feature <- feature[,id_col]
+  
+  # Subset VRI to just age class column
+  vri <- vri[,vri_age_class_col]
+  
+  # Intersect with VRI
+  ixn <- sf::st_intersection(feature, vri)
+  ixn$vri_ref_year <- vri_year
+  return(ixn)
+  
+}
+
 #### TARGETS FUNCTIONS ####
 
 # Functions here bundle up individual targets in the _targets.R file
