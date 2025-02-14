@@ -443,7 +443,8 @@ wrangle_bears <- function(f) {
                        bed_length, hair_on_entrance, 
                        hair_in_bed, den_status)
   f_b <- dplyr::select(f, den_id, sample_id, date_inspected, year,
-                       forestry_treatment_desc:v_distance_nearest_road)
+                       forestry_treatment_desc:v_distance_nearest_road, 
+                       proportion_tree_windthrown, x_windthrow_code)
   
   # Next, subtract -1 from the den status year - since it's technically
   # whether or not the den was occupied in the *last* year
