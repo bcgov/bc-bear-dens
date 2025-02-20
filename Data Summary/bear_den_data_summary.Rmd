@@ -893,9 +893,11 @@ class: center, middle, inverse
 f_full |>
   dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
   ggplot(aes(x = den_status_binary, 
-             y = elevation_m)) +
-  geom_boxplot() +
+             y = elevation_m,
+             color = den_status_binary)) +
+  geom_boxplot(fill = NA) +
   geom_jitter() +
+  scale_color_bright() +
   geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
   theme_minimal() +
   labs(x = "Den Status",
@@ -912,9 +914,11 @@ f_full |>
 f_full |>
   dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
   ggplot(aes(x = den_status_binary, 
-             y = slope_pct)) +
-  geom_boxplot() +
+             y = slope_pct,
+             color = den_status_binary)) +
+  geom_boxplot(fill = NA) +
   geom_jitter() +
+  scale_color_bright() +
   geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
   theme_minimal() +
   labs(x = "Den Status",
@@ -932,9 +936,11 @@ f_full |>
 f_full |>
   dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
   ggplot(aes(x = den_status_binary, 
-             y = slope_aspect)) +
-  geom_boxplot() +
+             y = slope_aspect,
+             color = den_status_binary)) +
+  geom_boxplot(fill = NA) +
   geom_jitter() +
+  scale_color_bright() +
   geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
   theme_minimal() +
   labs(x = "Den Status",
@@ -970,7 +976,7 @@ Note this includes all field visits, including dens with repeated visits.
 summary(f$f_prop_forest_60m)
 ```
 
-```{r, fig.height=4}
+```{r, fig.height=5}
 hist(f$f_prop_forest_60m, main = "Histogram of Proportion Forested", xlab = "Proportion Forested within 60m (%)")
 ```
 
@@ -984,13 +990,13 @@ Note this includes all field visits, including dens with repeated visits.
 summary(f$f_dist_lt40)
 ```
 
-```{r, fig.height=4}
+```{r, fig.height=5}
 hist(f$f_dist_lt40, main = "Histogram of Distance to <40yo Forest", xlab = "Distance to <40 yo forest (m)")
 ```
 
 ---
 
-### Distance to <40 yo forest
+### Distance to >40 yo forest
 
 Note this includes all field visits, including dens with repeated visits.
 
@@ -998,7 +1004,7 @@ Note this includes all field visits, including dens with repeated visits.
 summary(f$f_dist_gt40)
 ```
 
-```{r, fig.height=4}
+```{r, fig.height=5}
 hist(f$f_dist_gt40, main = "Histogram of Distance to >40yo Forest", xlab = "Distance to >40 yo forest (m)")
 ```
 
@@ -1012,14 +1018,14 @@ Note this includes all field visits, including dens with repeated visits.
 summary(f$f_dist_road)
 ```
 
-```{r, fig.height=4}
+```{r, fig.height=5}
 hist(f$f_dist_road, main = "Histogram of Distance to Nearest Road", xlab = "Distance to nearest road (m)")
 ```
 
 
 ---
 
-### Proportion forested within 1.5 km
+### Proportion age class within 1.5 km
 
 Note this includes all field visits, including dens with repeated visits
 
@@ -1032,7 +1038,7 @@ round(colSums(prop_1km[,4:12]) / nrow(prop_1km)) |>
 
 ---
 
-### Proportion forested within 1.5 km
+### Proportion age class within 1.5 km
 
 Note this includes all field visits, including dens with repeated visits
 
@@ -1053,7 +1059,7 @@ prop_1km |>
 
 ---
 
-### Proportion forested within 1.5 km
+### Proportion age class within 1.5 km
 
 Note this includes all field visits, including dens with repeated visits
 
@@ -1078,7 +1084,7 @@ prop_1km |>
 
 ---
 
-### Proportion forested within 1.5 km
+### Proportion age class within 1.5 km
 
 Note this includes all field visits, including dens with repeated visits
 
@@ -1114,7 +1120,7 @@ Note this includes all field visits, including dens with repeated visits.
 summary(road_density$road_density_m2)
 ```
 
-```{r, fig.height=4}
+```{r, fig.height=5}
 hist(road_density$road_density_m2, main = "Histogram of Road Density", xlab = "Road Density within 1.5km radius")
 ```
 
@@ -1689,6 +1695,9 @@ full <- full |> dplyr::mutate(dist_lt40 = round(dist_lt40, 0),
 ```{r pseudo map}
 ##### Map #####
 
+# Simplify study_area shape - so it plots faster
+study_area <- rmapshaper::ms_simplify(study_area)
+
 # Set up our map bounding box
 bbox <- st_bbox(study_area)
 bbox[1:2] <- bbox[1:2] - 10000 # add a 10km buffer to our bounding box
@@ -1701,26 +1710,489 @@ bc <- st_transform(bc, 3005) # BC Albers projection
 bc <- st_crop(bc, bbox) # crop to our bounding box area
 
 # Plot time!
-# For the life of me can't figure out why the point size is not
-# changing but that's a low priority thing to fix
-# COMMENTED OUT TO SPEED UP RUNNING THIS SCRIPT
 ggplot() +
   geom_sf(data = bc, fill = "grey") +
-  geom_sf(data = study_area, fill = "darkgrey") +
-  geom_sf(data = parks, fill = "lightgreen", alpha = 0.4) +
-  geom_sf(data = pseudo_dens,
-          aes(shape = in_park),
-          stroke = NA,
-          alpha = 0.3,
-          size = 0.2) +
-  geom_sf(data = dens,
-          aes(shape = in_park),
-          color = "purple",
-          stroke = NA,
-          size = 0.2) +
+  geom_sf(data = study_area, fill = "#a4a4a4", color = "#4a4a4a") +
+  geom_sf(data = parks, fill = "lightgreen", alpha = 0.6) +
+  geom_sf(data = full,
+          aes(shape = in_park,
+              color = type)) +
+  scale_color_manual(name = "Data Type",
+                     values = c("black", "#de0ae8")) +
+  scale_shape(name = "Location", labels = c("In a park/protected area", "Outside a park/protected area")) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
   coord_sf(xlim = c(bbox[1], bbox[3]),
            ylim = c(bbox[2], bbox[4])) +
-  theme(legend.position = "none") +
-  labs(caption = "Triangle shape indicates the den falls within a provincial/federal park or protected area.")
+  labs(caption = "In darker grey, the study area. Green indicates Provincial/Federal parks or proteceted areas.") +
+  theme(panel.background = element_rect(fill = "transparent",
+                                  colour = NA_character_)) # necessary to avoid drawing panel outline
 ```
 
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type, 
+             y = prop_forest_60m,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Pseudo", "Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  labs(x = "Data Type",
+       y = "Proportion Forested (GIS verified values)",
+       title = "Data Type vs. % Forested (GIS verified)")
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = prop_forest_60m,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  labs(x = "Data Type",
+       y = "Proportion Forested (GIS verified values)",
+       title = "Data Type vs. % Forested (GIS verified)",
+       subtitle = "Comparing values inside vs outside parks/protected areas")
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type, 
+             y = dist_lt40,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Pseudo", "Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Data Type",
+       y = "log Distance to <40 (GIS verified values)",
+       title = "Data Type vs. Distance to <40 yo forest (GIS verified values)") 
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = dist_lt40,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Data Type",
+       y = "log Distance to <40 (GIS verified values)",
+       title = "Data Type vs. Distance to <40 yo forest (GIS verified values)",
+       subtitle = "Comparing values inside vs outside parks/protected areas") 
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type, 
+             y = dist_gt40,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Pseudo", "Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Data Type",
+       y = "log Distance to >40 (GIS verified values)",
+       title = "Data Type vs. Distance to >40 yo forest (GIS verified values)") 
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = dist_gt40,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Data Type",
+       y = "log Distance to >40 (GIS verified values)",
+       title = "Data Type vs. Distance to >40 yo forest (GIS verified values)",
+       subtitle = "Comparing values inside vs outside parks/protected areas") 
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type, 
+             y = dist_road,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Pseudo", "Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Data Type",
+       y = "log Distance to nearest road (GIS verified values)",
+       title = "Data Type vs. Distance to nearest road (GIS verified values)") 
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = dist_road,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Data Type",
+       y = "log Distance to nearest road (GIS verified values)",
+       title = "Data Type vs. Distance to nearest road (GIS verified values)",
+       subtitle = "Comparing values inside vs outside parks/protected areas") 
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type, 
+             y = dist_from_edge,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Pseudo", "Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10") +
+  annotation_logticks(side = "l") +
+  labs(x = "Data Type",
+       y = "log Distance to forest edge (GIS verified values)",
+       title = "Data Type vs. Distance to forest edge (GIS verified values)") 
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type), 
+             y = dist_from_edge,
+             color = type)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")), 
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  theme_minimal() +
+  scale_y_continuous(trans = 'log10') +
+  annotation_logticks() +
+  labs(x = "Park Status",
+       y = "log Distance to forest edge (GIS verified values)",
+       title = "Park Status vs. Distance to forest edge (GIS verified values)",
+       subtitle = "Comparing values inside vs outside parks/protected areas")
+```
+
+---
+
+## Comparing pseudo data to real data
+
+Let's revisit the original figure from a few (dozen) slides ago...
+
+```{r, echo = FALSE, fig.width = 10, fig.height=6, dev.args=list(bg="transparent")}
+prop_1km |>  
+  # First pivot the data into long format - age class becomes a single column
+  tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
+  dplyr::mutate(age_class = factor(age_class, levels = c(1:9))) |>
+  # Then summarize the mean % age class by year 
+  dplyr::group_by(year, age_class) |> 
+  dplyr::summarise(value = mean(value)) |>
+  # Then plot
+  ggplot(aes(x = year, y = value, fill = age_class)) +
+  geom_area() +
+  scale_fill_light(reverse = TRUE) +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+Zoom in to 2020-2024, so it lines up with pseudo data...
+
+```{r, echo = FALSE, fig.width = 10, fig.height=6, dev.args=list(bg="transparent")}
+prop_1km |>  
+  # Filter to 2020-2024
+  dplyr::filter(year %in% c(2020:2024)) |>
+  # First pivot the data into long format - age class becomes a single column
+  tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
+  dplyr::mutate(age_class = factor(age_class, levels = c(1:9))) |>
+  # Then summarize the mean % age class by year 
+  dplyr::group_by(year, age_class) |> 
+  dplyr::summarise(value = mean(value)) |>
+  # Then plot
+  ggplot(aes(x = year, y = value, fill = age_class)) +
+  geom_area() +
+  scale_fill_light(reverse = TRUE) +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+... and compare it to the *very* static age classes around pseudo data.
+
+```{r, echo = FALSE, fig.width = 10, fig.height=6, dev.args=list(bg="transparent")}
+pseudo_prct |>  
+  # First pivot the data into long format - age class becomes a single column
+  tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
+  dplyr::mutate(age_class = factor(age_class, levels = c(1:9))) |>
+  # Then summarize the mean % age class by year 
+  dplyr::group_by(year, age_class) |> 
+  dplyr::summarise(value = mean(value)) |>
+  # Then plot
+  ggplot(aes(x = year, y = value, fill = age_class)) +
+  geom_area() +
+  scale_fill_light(reverse = TRUE) +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type,
+             y = road_density_m2,
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  scale_y_log10() +
+  annotation_logticks(side = "l") +
+  geom_signif(comparisons = list(c("Pseudo", "Real")),
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  labs(x = "Park Status",
+       y = "Road density",
+       title = "Park Status vs. Road Density",
+       caption = "m2 of road surface within 1.5 km of the den") +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type),
+             y = road_density_m2,
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  scale_y_log10() +
+  annotation_logticks(side = "l") +
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")),
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  labs(x = "Park Status",
+       y = "Road density",
+       title = "Park Status vs. Road Density",
+       caption = "m2 of road surface within 1.5 km of the den",
+       subtitle = "Comparing values inside vs outside parks/protected areas") +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type,
+             y = elevation_m,
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  geom_signif(comparisons = list(c("Pseudo", "Real")),
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  labs(x = "Park Status",
+       y = "Elevation (m)",
+       title = "Park Status vs. Elevation (m)") +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type),
+             y = elevation_m,
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")),
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  labs(x = "Park Status",
+       y = "Elevation (m)",
+       title = "Park Status vs. Elevation (m)") +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type,
+             y = slope_pct,
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  geom_signif(comparisons = list(c("Pseudo", "Real")),
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  labs(x = "Park Status",
+       y = "Slope grade (%)",
+       title = "Park Status vs. Slope grade (%)") +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type),
+             y = slope_pct,
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")),
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  labs(x = "Park Status",
+       y = "Slope grade (%)",
+       title = "Park Status vs. Slope grade (%)") +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = type,
+             y = slope_aspect,
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  geom_signif(comparisons = list(c("Pseudo", "Real")),
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  labs(x = "Park Status",
+       y = "Slope aspect",
+       title = "Park Status vs. Slope aspect") +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+```{r}
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(in_park, type),
+             y = slope_pct,
+             color = type)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) + 
+  geom_signif(comparisons = list(c("in_park.Pseudo", "not_in_park.Pseudo"),
+                                 c("in_park.Real", "not_in_park.Real")),
+              map_signif_level = TRUE) +
+  scale_color_bright() +
+  labs(x = "Park Status",
+       y = "Slope aspect",
+       title = "Park Status vs. Slope aspect") +
+  theme_minimal()
+```
+
+---
+
+## Comparing pseudo data to real data
+
+Ultimately, I think it's safe to say we *do not* have a random sample of dens, when it comes to both forestry treatments and geography.
