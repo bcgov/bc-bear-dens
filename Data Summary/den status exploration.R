@@ -61,6 +61,8 @@ plyr::count(f$den_status_binary)
 # just our columns of interest
 f <- f[,c("sample_id", "den_id", "date_inspected", 
           "region", "latitude", "longitude",
+          "struct_stage", "age_class", "canopy_closure",
+          "elevation_m", "slope_pct", "slope_aspect",
           "bed_depth", "bed_width", "bed_length", 
           "hair_in_bed", 
           "den_status", "den_status_binary",
@@ -101,7 +103,9 @@ f <- f[order(f$den_id, f$year),]
 # We're going to do this in a simple way... chop the data in half vertically,
 # so we have f_a: den info and f_b: forestry info. 
 f_a <- dplyr::select(f, sample_id:den_status_binary, year) # select columns 1:9 (den info) + column 22 (year)
-f_b <- dplyr::select(f, sample_id, den_id, forestry_treatment_desc:year) # select columns 1:2 (sample_id, den_id) + 10:22 (forestry info). 
+f_b <- dplyr::select(f, den_id, sample_id, date_inspected, year,
+                     forestry_treatment_desc:v_distance_nearest_road, 
+                     proportion_tree_windthrown, x_windthrow_code) # select columns 1:2 (sample_id, den_id) + 10:22 (forestry info). 
 
 # Next, subtract -1 from the den status year - since it's technically
 # whether or not the den was occupied in the *last* year
@@ -119,12 +123,18 @@ f <- merge(f_a, f_b, by = c("den_id", "year"), suffixes = c("_den", "_forest"))
 
 # Next let's just rename some of the columns to make them a bit more consistent.
 # In theory, now that we've done a ton of manual QC, f_* should equal v_*!!
-names(f)[16:26] <- c("nearest_tree_m", 
-                     "f_prop_forest_60m", "v_prop_forest_60m",
-                     "f_dist_lt40", "v_dist_lt40",
-                     "f_dist_gt40", "v_dist_gt40", 
-                     "f_dist_road", "v_dist_road",
-                     "windthrow_prct", "windthrow_code")
+f <- dplyr::rename(f,
+              "nearest_tree_m" = "distance_nearest_tree_field",
+              "f_prop_forest_60m" = "proportion_forested_field",
+              "v_prop_forest_60m" = "proportion_forested",
+              "f_dist_lt40" = "distance_less40yr_forest_field", 
+              "v_dist_lt40" = "v_distance_less40yr_forest",
+              "f_dist_gt40" = "distance_grtr40yr_forest_field", 
+              "v_dist_gt40" = "v_distance_grtr40year_forest", 
+              "f_dist_road" = "distance_nearest_road", 
+              "v_dist_road" = "v_distance_nearest_road",
+              "windthrow_prct" = "proportion_tree_windthrown", 
+              "windthrow_code" = "x_windthrow_code")
 
 rm(f_a, f_b)
 
@@ -414,6 +424,222 @@ f |>
   theme_minimal()
 
 
+##### elevation #####
+
+f[["elevation_m"]][which(f$elevation_m == 999)] <- NA
+
+f |>
+  ggplot(aes(x = den_status_binary, 
+             y = elevation_m)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Elevation (m)",
+       title = "Den Status vs. Elevation (m)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f |>
+  ggplot(aes(x = elevation_m,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Elevation (m)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### slope % #####
+
+f[["slope_pct"]][which(f$slope_pct > 200)] <- NA
+
+f |>
+  ggplot(aes(x = den_status_binary, 
+             y = slope_pct)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Slope Grade (%)",
+       title = "Den Status vs. Slope (%)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f |>
+  ggplot(aes(x = slope_pct,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Slope Grade (%)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### slope aspect #####
+
+f[["slope_aspect"]][which(f$slope_aspect > 360)] <- NA
+
+f |>
+  ggplot(aes(x = den_status_binary, 
+             y = slope_aspect)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Slope Aspect",
+       title = "Den Status vs. Slope Aspect",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f |>
+  ggplot(aes(x = slope_aspect,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Slope Aspect",
+       y = "Density") +
+  theme_minimal()
+
+
+##### canopy closure #####
+
+f[["canopy_closure"]][which(f$canopy_closure > 100)] <- NA
+
+f |>
+  ggplot(aes(x = den_status_binary, 
+             y = canopy_closure)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Canopy Closure",
+       title = "Den Status vs. Canopy Closure",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f |>
+  ggplot(aes(x = canopy_closure,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Canopy Closure",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed depth #####
+
+f[["bed_depth"]][which(abs(f$bed_depth) == 999)] <- NA
+
+f |>
+  ggplot(aes(x = den_status_binary, 
+             y = bed_depth)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Bed Depth (cm)",
+       title = "Den Status vs. Bed Depth (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f |>
+  ggplot(aes(x = bed_depth,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Bed Depth (cm)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed width #####
+
+f[["bed_width"]][which(abs(f$bed_width) == 999)] <- NA
+
+f |>
+  ggplot(aes(x = den_status_binary, 
+             y = bed_width)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Bed Width (cm)",
+       title = "Den Status vs. Bed Width (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f |>
+  ggplot(aes(x = bed_width,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Bed Width (cm)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed length #####
+
+f[["bed_length"]][which(abs(f$bed_length) == 999)] <- NA
+
+f |>
+  ggplot(aes(x = den_status_binary, 
+             y = bed_length)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Bed Length (cm)",
+       title = "Den Status vs. Bed Length (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f |>
+  ggplot(aes(x = bed_length,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Bed Length (cm)",
+       y = "Density") +
+  theme_minimal()
+
 
 # ONLY FOR SURE ACTIVE/NON ACTIVE -----------------------------------------
 
@@ -627,6 +853,213 @@ f[which(f$den_status %in% for_sure_dens), ] |>
                     name = "Den Status") +
   facet_wrap(~ region) +
   labs(x = "Longitude",
+       y = "Density") +
+  theme_minimal()
+
+
+
+##### elevation #####
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = den_status_binary, 
+             y = elevation_m)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Elevation (m)",
+       title = "Den Status vs. Elevation (m)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = elevation_m,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Elevation (m)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### slope % #####
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = den_status_binary, 
+             y = slope_pct)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Slope Grade (%)",
+       title = "Den Status vs. Slope (%)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = slope_pct,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Slope Grade (%)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### slope aspect #####
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = den_status_binary, 
+             y = slope_aspect)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Slope Aspect",
+       title = "Den Status vs. Slope Aspect",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = slope_aspect,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Slope Aspect",
+       y = "Density") +
+  theme_minimal()
+
+
+##### canopy closure #####
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = den_status_binary, 
+             y = canopy_closure)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Canopy Closure",
+       title = "Den Status vs. Canopy Closure",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = canopy_closure,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Canopy Closure",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed depth #####
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = den_status_binary, 
+             y = bed_depth)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Bed Depth (cm)",
+       title = "Den Status vs. Bed Depth (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = bed_depth,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Bed Depth (cm)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed width #####
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = den_status_binary, 
+             y = bed_width)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Bed Width (cm)",
+       title = "Den Status vs. Bed Width (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = bed_width,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Bed Width (cm)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed length #####
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = den_status_binary, 
+             y = bed_length)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Bed Length (cm)",
+       title = "Den Status vs. Bed Length (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = bed_length,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  labs(x = "Bed Length (cm)",
        y = "Density") +
   theme_minimal()
 
@@ -888,7 +1321,7 @@ f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
 
 f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
   ggplot(aes(x = hair_in_bed, 
-             y = Y)) +
+             y = latitude)) +
   geom_boxplot() +
   geom_jitter() +
   geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
@@ -901,14 +1334,14 @@ f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
 
 
 f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
-  ggplot(aes(x = Y,
+  ggplot(aes(x = latitude,
              color = hair_in_bed,
              fill = hair_in_bed)) +
   geom_density(alpha = 0.1) +
   scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
-                     name = "Den Status") +
+                     name = "Hair Presence") +
   scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
-                    name = "Den Status") +
+                    name = "Hair Presence") +
   facet_wrap(~ region) +
   labs(x = "Latitude",
        y = "Density") +
@@ -919,7 +1352,7 @@ f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
 
 f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
   ggplot(aes(x = hair_in_bed, 
-             y = X)) +
+             y = longitude)) +
   geom_boxplot() +
   geom_jitter() +
   geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
@@ -932,16 +1365,222 @@ f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
 
 
 f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
-  ggplot(aes(x = X,
+  ggplot(aes(x = longitude,
              color = hair_in_bed,
              fill = hair_in_bed)) +
   geom_density(alpha = 0.1) +
   scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
-                     name = "Den Status") +
+                     name = "Hair Presence") +
   scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
-                    name = "Den Status") +
+                    name = "Hair Presence") +
   facet_wrap(~ region) +
   labs(x = "Longitude",
+       y = "Density") +
+  theme_minimal()
+
+
+##### elevation #####
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = hair_in_bed, 
+             y = elevation_m)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Hair in Bed",
+       y = "Elevation (m)",
+       title = "Hair Presence vs. Elevation (m)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = elevation_m,
+             color = hair_in_bed,
+             fill = hair_in_bed)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Hair Presence") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Hair Presence") +
+  labs(x = "Elevation (m)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### slope % #####
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = hair_in_bed, 
+             y = slope_pct)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Hair in Bed",
+       y = "Slope Grade (%)",
+       title = "Hair Presence vs. Slope (%)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = slope_pct,
+             color = hair_in_bed,
+             fill = hair_in_bed)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Hair Presence") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Hair Presence") +
+  labs(x = "Slope Grade (%)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### slope aspect #####
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = hair_in_bed, 
+             y = slope_aspect)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Hair in Bed",
+       y = "Slope Aspect",
+       title = "Hair Presence vs. Slope Aspect",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = slope_aspect,
+             color = hair_in_bed,
+             fill = hair_in_bed)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Hair Presence") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Hair Presence") +
+  labs(x = "Slope Aspect",
+       y = "Density") +
+  theme_minimal()
+
+
+##### canopy closure #####
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = hair_in_bed, 
+             y = canopy_closure)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Hair in Bed",
+       y = "Canopy Closure",
+       title = "Hair Presence vs. Canopy Closure",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = canopy_closure,
+             color = hair_in_bed,
+             fill = hair_in_bed)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Hair Presence") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Hair Presence") +
+  labs(x = "Canopy Closure",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed depth #####
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = hair_in_bed, 
+             y = bed_depth)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Hair in Bed",
+       y = "Bed Depth (cm)",
+       title = "Hair Presence vs. Bed Depth (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = bed_depth,
+             color = hair_in_bed,
+             fill = hair_in_bed)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Hair Presence") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Hair Presence") +
+  labs(x = "Bed Depth (cm)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed width #####
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = hair_in_bed, 
+             y = bed_width)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Hair in Bed",
+       y = "Bed Width (cm)",
+       title = "Hair Presence vs. Bed Width (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = bed_width,
+             color = hair_in_bed,
+             fill = hair_in_bed)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Hair Presence") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Hair Presence") +
+  labs(x = "Bed Width (cm)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### bed length #####
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = hair_in_bed, 
+             y = bed_length)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Yes", "No")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Hair in Bed",
+       y = "Bed Length (cm)",
+       title = "Hair Presence vs. Bed Length (cm)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+f[which(f$hair_in_bed %in% c("Yes", "No")), ] |>
+  ggplot(aes(x = bed_length,
+             color = hair_in_bed,
+             fill = hair_in_bed)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Hair Presence") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Hair Presence") +
+  labs(x = "Bed Length (cm)",
        y = "Density") +
   theme_minimal()
 
@@ -1058,6 +1697,47 @@ corrplot::corrplot(chisq$residuals, is.corr = FALSE)
 
 
 rm(chisq)
+
+
+##### Den Status x Age Class #####
+
+# Note that this is the age class at the time of the
+# first visit (i.e., from the static data). It could
+# have changed at some point during the study.
+
+f |>
+  #dplyr::filter(den_status %in% for_sure_dens) |>
+  dplyr::filter(!is.na(age_class)) |>
+  dplyr::group_by(age_class, den_status_binary) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = den_status_binary,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "age_class") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  as.table() |>
+  gplots::balloonplot(main = "Den Status x Age Class")
+
+
+chisq <- f |>
+  dplyr::filter(!is.na(age_class)) |>
+  dplyr::group_by(age_class, den_status) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = age_class,
+                     values_from = n) |>
+  dplyr::mutate(den_status = dplyr::if_else(!is.na(den_status), den_status, "NA")) |>
+  tibble::column_to_rownames(var = "den_status") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+
+chisq$observed
+round(chisq$expected, 1)
+corrplot::corrplot(chisq$residuals, is.corr = FALSE)
+
+
+rm(chisq)
+
 
 # % AGE CLASS -------------------------------------------------------------
 

@@ -202,6 +202,37 @@ f <- merge(f, fv, by.x = "sample_id_forest", by.y = "sample_id") # again, mergin
 pseudo_dens <- merge(pseudo_dens, pfv, by = "sample_id")
 
 
+##### Pull DEM data #####
+# For each pseudo den, we have elevation, slope (%),
+# and slope aspect, extracted from the BC CDED 30m data.
+tar_load(pseudo_dens_dem)
+pseudo_dens_dem <- unique(pseudo_dens_dem)
+
+pseudo_dens <- merge(pseudo_dens, pseudo_dens_dem)
+
+rm(pseudo_dens_dem)
+
+# And also clean the DEM data fields in the real data
+f[["elevation_m"]][which(f$elevation_m == 999)] <- NA
+f[["slope_pct"]][which(f$slope_pct > 200)] <- NA
+f[["slope_aspect"]][which(f$slope_aspect > 360)] <- NA
+
+##### Pull age class data #####
+# For each pseudo den, we have the 2023 VRI age class.
+tar_load(pseudo_dens_age_class)
+pseudo_dens_age_class <- sf::st_drop_geometry(pseudo_dens_age_class)
+
+pseudo_dens <- merge(pseudo_dens, pseudo_dens_age_class, all.x = TRUE)
+
+rm(pseudo_dens_age_class)
+
+# And also clean up the age class field in the real data
+# This will produce some NAs
+pseudo_dens$proj_age_class_cd_1 <- as.numeric(pseudo_dens$proj_age_class_cd_1)
+f$proj_age_class_cd_1 <- as.numeric(substring(f$age_class, 1, 1))
+
+
+
 ##### % age class #####
 
 prct <- tar_read(prct_age_class_1.5km)
@@ -262,13 +293,15 @@ full <- full |>
   dplyr::select(sample_id, den_id, type, year,
                 den_status, den_status_binary,
                 region, latitude, longitude, in_park,
+                elevation_m, slope_pct, slope_aspect,
+                proj_age_class_cd_1,
                 prop_forest_60m, dist_lt40, dist_gt40, dist_road,
                 age_class_1:road_density_m2)
 
 # Filter to only 2019:2023
 full <- full[which(full$year %in% c(2019:2024)), ]
 
-full <- na.omit(full)
+#full <- na.omit(full) # this eliminates a lot of dens with incomplete DEM (slope, elevation, etc.) data
 
 # Rename park variable so it's easier to tell what it is on plots
 full$in_park <- ifelse(full$in_park, "in_park", "not_in_park")
@@ -901,6 +934,106 @@ full[which(full$den_status %in% for_sure_dens), ] |>
        title = "Den Status vs. Road Density",
        subtitle = "'For sure' categories binned into either 'Active' or 'Not active'",
        caption = "m2 of road surface within 1.5 km of the den") +
+  theme_minimal()
+
+
+##### elevation #####
+
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(den_status_binary, type), 
+             y = elevation_m,
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active.Pseudo", "Not active.Pseudo"),
+                                 c("Active.Real", "Not active.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Elevation (m)",
+       title = "Den Status vs. Elevation (m)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = elevation_m,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  facet_wrap(~ type + region) +
+  labs(x = "Elevation (m)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### slope % #####
+
+
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(den_status_binary, type), 
+             y = slope_pct,
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active.Pseudo", "Not active.Pseudo"),
+                                 c("Active.Real", "Not active.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Slope Grade (%)",
+       title = "Den Status vs. Slope (%)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = slope_pct,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  facet_wrap(~ type + region) +
+  labs(x = "Slope Grade (%)",
+       y = "Density") +
+  theme_minimal()
+
+
+##### slope aspect #####
+
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = interaction(den_status_binary, type), 
+             y = slope_aspect,
+             color = type)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active.Pseudo", "Not active.Pseudo"),
+                                 c("Active.Real", "Not active.Real")), 
+              map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Slope Aspect",
+       title = "Den Status vs. Slope Aspect",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+
+full[which(full$den_status %in% for_sure_dens), ] |>
+  ggplot(aes(x = slope_aspect,
+             color = den_status_binary,
+             fill = den_status_binary)) +
+  geom_density(alpha = 0.1) +
+  scale_color_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                     name = "Den Status") +
+  scale_fill_manual(values = c("#E69F00", "#009E73", "#CC79A7", "purple"),
+                    name = "Den Status") +
+  facet_wrap(~ type + region) +
+  labs(x = "Slope Aspect",
+       y = "Density") +
   theme_minimal()
 
 

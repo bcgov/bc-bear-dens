@@ -55,3 +55,12 @@ temp/
 GIS/*
 !GIS/regions_wkt.csv
 *.zip
+
+# Markdown related files
+Data\ Summary/bear_den_data_summary_files*
+Data\ Summary/libs*
+Data\ Summary/rsconnect*
+Data\ Summary/xaringan-themer.css
+!Data\ Summary/*.R
+!Data\ Summary/*.Rmd
+
