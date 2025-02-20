@@ -1812,6 +1812,21 @@
       ],
       "Hash": "5cd8cfb2e90c57110b7dd1785c599aba"
     },
+    "khroma": {
+      "Package": "khroma",
+      "Version": "1.15.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "grDevices",
+        "graphics",
+        "grid",
+        "stats",
+        "utils"
+      ],
+      "Hash": "4329987138facbce9af936f631925e2f"
+    },
     "knitr": {
       "Package": "knitr",
       "Version": "1.48",
@@ -2969,7 +2984,7 @@
     },
     "sf": {
       "Package": "sf",
-      "Version": "1.0-16",
+      "Version": "1.0-19",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -2988,7 +3003,7 @@
         "units",
         "utils"
       ],
-      "Hash": "ad57b543f7c3fca05213ba78ff63df9b"
+      "Hash": "fe02eec2f6b3ba0e24afe83d5ccfb528"
     },
     "sfheaders": {
       "Package": "sfheaders",

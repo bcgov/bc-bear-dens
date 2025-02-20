@@ -42,6 +42,7 @@ library(leaflet)  # interactive map
 library(dplyr)    # data manipulation
 library(magrittr) # data manipulation
 library(ggplot2)  # plotting
+library(ggsignif) # plotting significance/t-test/wilcox test on boxplots
 library(khroma)   # plotting color schemes
 
 # Read in tokens
@@ -72,6 +73,13 @@ prop_1km <- withr::with_dir(rprojroot::find_root('_targets.R'),
 withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(road_density))
 road_density <- merge(f[3], road_density, all.x = TRUE) # merge in the other sample id's (with zero road density) into road_density dataset
 road_density$road_density_m2 <- ifelse(is.na(road_density$road_density_m2), 0, road_density$road_density_m2)
+
+# Define list of "for sure dens"
+for_sure_dens <- c("Active in last denning season", 
+                   "Not active in last season",
+                   "Not active in last season, but recent use (1-4 seasons)",
+                   "Not active in last season, no recent use (>4 seasons)",
+                   "No recent evidence of use (>4 seasons)")
 ```
 
 ```{r dens prep, include = FALSE}
@@ -108,7 +116,31 @@ f <- dplyr::rename(f,
               "v_dist_road" = "v_distance_nearest_road",
               "windthrow_prct" = "proportion_tree_windthrown", 
               "windthrow_code" = "x_windthrow_code")
+
+# Make just one 'distance from edge' variable
+f$dist_from_edge <- ifelse(f$f_dist_lt40 > 0, f$f_dist_lt40, f$f_dist_gt40)
+f$log_dist_from_edge <- log(f$dist_from_edge + 1)
+
+# Next, say if it's in old, new, or edge of forest.
+f <- f |> dplyr::mutate(f_dist_lt40 = round(f_dist_lt40, 0),
+                        f_dist_gt40 = round(f_dist_gt40, 0),
+                        age = dplyr::case_when((f_dist_lt40 == f_dist_gt40) ~ "on_edge",
+                                         (f_dist_lt40 > f_dist_gt40) ~ "within_old",
+                                         (f_dist_lt40 < f_dist_gt40) ~ "within_young"))
+
+# Add a `den_status_binary` column
+f <- f |> dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
+                                                     den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
+                                                     den_status == "Obsolete" ~ "Obsolete",
+                                                     den_status == "Unknown" ~ "Unknown",
+                                                     TRUE ~ "Unknown"))
+
+# Double check our categories
+unique(f[,c("den_status", "den_status_binary")]) |> 
+  dplyr::arrange(den_status_binary) |>
+  knitr::kable()
 ```
+
 
 ```{r f_analysis prep, include = FALSE}
 # Rename forestry columns to more consistent/easier to use names
@@ -124,6 +156,24 @@ f_analysis <- dplyr::rename(f_analysis,
               "v_dist_road" = "v_distance_nearest_road",
               "windthrow_prct" = "proportion_tree_windthrown", 
               "windthrow_code" = "x_windthrow_code")
+
+# Next, make just one 'distance from edge' variable
+f_analysis$dist_from_edge <- ifelse(f_analysis$f_dist_lt40 > 0, f_analysis$f_dist_lt40, f_analysis$f_dist_gt40)
+f_analysis$log_dist_from_edge <- log(f_analysis$dist_from_edge + 1)
+
+# Next, say if it's in old, new, or edge of forest.
+f_analysis <- f_analysis |> dplyr::mutate(f_dist_lt40 = round(f_dist_lt40, 0),
+                              f_dist_gt40 = round(f_dist_gt40, 0),
+                              age = dplyr::case_when((f_dist_lt40 == f_dist_gt40) ~ "on_edge",
+                                               (f_dist_lt40 > f_dist_gt40) ~ "within_old",
+                                               (f_dist_lt40 < f_dist_gt40) ~ "within_young"))
+
+# Add a `den_status_binary` column
+f_analysis <- f_analysis |> dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
+                                                     den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
+                                                     den_status == "Obsolete" ~ "Obsolete",
+                                                     den_status == "Unknown" ~ "Unknown",
+                                                     TRUE ~ "Unknown"))
 
 # Merge spatial/static den data with analysis subset of field visits
 f_analysis <- merge(dens, f_analysis, by = "den_id")
@@ -153,7 +203,8 @@ f_analysis$sample_id <- f_analysis$sample_id_den
 
 # Subset to only columns we care about
 f_analysis <- f_analysis |> 
-  dplyr::select(sample_id, den_id, den_status,
+  dplyr::select(sample_id, den_id, den_status, den_status_binary,
+                sample_id_forest, sample_id_den,
                 date_inspected_den, date_inspected_forest, year,
                 region, latitude, longitude, 
                 struct_stage, age_class, canopy_closure,
@@ -165,6 +216,10 @@ f_analysis <- f_analysis |>
                 f_prop_forest_60m, f_dist_lt40, f_dist_gt40, f_dist_road,
                 windthrow_prct, windthrow_code,
                 age_class_1:road_density_m2)
+```
+
+```{r f_full prep, include = FALSE}
+f_full <- merge(dens, f, by = "den_id")
 ```
 
 There are currently **`r length(unique(f$den_id))`** dens being tracked, and a total of **`r nrow(f)`** field visits completed to date (**`r Sys.Date()`**).
@@ -425,6 +480,34 @@ knitr::kable(table(dens$age_class), col.names = c("Age Class", "N"))
 knitr::kable(table(dens$den_state), col.names = c("Den State", "N"))
 ```
 
+--- 
+
+# What's the geography like?
+### Elevation
+
+```{r}
+hist(dens$elevation_m, main = "Histogram of den elevations", xlab = "Elevation (m)")
+```
+
+--- 
+
+# What's the geography like?
+### Slope grade (%)
+
+```{r}
+hist(dens$slope_pct, main = "Histogram of slope grades", xlab = "Slope (%)")
+```
+
+--- 
+
+# What's the geography like?
+### Slope aspect
+
+```{r}
+hist(dens$slope_aspect, main = "Histogram of slope aspects", xlab = "Slope aspect (degrees)",
+     xlim = range(0, 360), breaks = seq(0, 360, 45))
+```
+
 ---
 class: center, middle, inverse
 
@@ -492,7 +575,7 @@ knitr::kable(table(f$den_status), col.names = c("Den Status", "N")) |>
 First need to categorize dens into `Active`, `Not Active`, or `Unknown`.
 Based on the highlighted rows in the tables of the previous slides, we have:
 
-```{r, echo = FALSE}
+```{r den_status_binary, echo = FALSE}
 # Add a `den_status_binary` column
 f <- f |> dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
                                                      den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
@@ -506,17 +589,6 @@ unique(f[,c("den_status", "den_status_binary")]) |>
   knitr::kable()
 ```
 
-```{r, include = FALSE, echo = FALSE}
-# This is the exact same thing as the previous chunk, but 
-# for f_analysis
-
-# Add a `den_status_binary` column
-f_analysis <- f_analysis |> dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
-                                                     den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
-                                                     den_status == "Obsolete" ~ "Obsolete",
-                                                     den_status == "Unknown" ~ "Unknown",
-                                                     TRUE ~ "Unknown"))
-```
 
 ---
 
@@ -811,7 +883,82 @@ corrplot::corrplot(chisq$residuals, is.corr = FALSE)
 ---
 class: center, middle, inverse
 
+# Geography vs Status
+
+---
+
+### Elevation
+
+```{r}
+f_full |>
+  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
+  ggplot(aes(x = den_status_binary, 
+             y = elevation_m)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Elevation (m)",
+       title = "Den Status vs. Elevation (m)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+```
+
+---
+
+### Slope grade (%)
+
+```{r}
+f_full |>
+  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
+  ggplot(aes(x = den_status_binary, 
+             y = slope_pct)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Slope Grade (%)",
+       title = "Den Status vs. Slope (%)",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+```
+
+---
+
+### Slope aspect (degrees)
+
+```{r}
+f_full |>
+  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
+  ggplot(aes(x = den_status_binary, 
+             y = slope_aspect)) +
+  geom_boxplot() +
+  geom_jitter() +
+  geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Den Status",
+       y = "Slope Aspect",
+       title = "Den Status vs. Slope Aspect",
+       subtitle = "All categories binned into either 'Active' or 'Not active'") 
+
+```
+
+
+---
+class: center, middle, inverse
+
 # Forestry summary data
+
+---
+
+### Canopy closure
+
+Note this value was not updated past the first field visit.
+
+```{r}
+hist(dens$canopy_closure, main = "Histogram of canopy closure", xlab = "Canopy closure (%)", xlim = range(0, 100))
+```
 
 ---
 
@@ -889,7 +1036,7 @@ round(colSums(prop_1km[,4:12]) / nrow(prop_1km)) |>
 
 Note this includes all field visits, including dens with repeated visits
 
-```{r, echo = FALSE, fig.width = 9, dev.args=list(bg="transparent")}
+```{r, echo = FALSE, fig.width = 10, dev.args=list(bg="transparent")}
 prop_1km |>  
   # First pivot the data into long format - age class becomes a single column
   tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
@@ -910,7 +1057,7 @@ prop_1km |>
 
 Note this includes all field visits, including dens with repeated visits
 
-```{r, echo = FALSE, fig.width = 9, dev.args=list(bg="transparent")}
+```{r, echo = FALSE, fig.width = 10, dev.args=list(bg="transparent")}
 prop_1km |>  
   # First pivot the data into long format - age class becomes a single column
   tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
@@ -935,7 +1082,7 @@ prop_1km |>
 
 Note this includes all field visits, including dens with repeated visits
 
-```{r, echo = FALSE, fig.width = 9, dev.args=list(bg="transparent")}
+```{r, echo = FALSE, fig.width = 10, dev.args=list(bg="transparent")}
 prop_1km |>  
   # First pivot the data into long format - age class becomes a single column
   tidyr::pivot_longer(cols = 4:12, names_to = "age_class", names_prefix = "age_class_") |>
@@ -998,7 +1145,31 @@ class: center, middle, inverse
 
 Now, we need to do a bit of data wrangling. In theory, the den status of **the current year** is influenced by the forestry data **from the year before**. So, we match the den status with last year's forestry data from our field visits. In doing so, this cuts our dataset own to `r nrow(f_analysis)` records. 
 
-All subsequent plots show den status of year *N* versus forestry data from year *N - 1*.
+With the exception of canopy closure, all subsequent plots show den status of year *N* versus forestry data from year *N - 1*. Canopy closure was only measured once in the study (at the first den visit) so take that result with a grain of salt.
+
+---
+
+## Den Status vs Canopy Closure
+
+```{r fig.height = 5.5, echo = FALSE, dev.args=list(bg="transparent")}
+#hrbrthemes::import_plex_sans()
+
+ggplot(f_full, aes(x = den_status_binary,
+                       y = canopy_closure,
+                       color = den_status_binary)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  ggsignif::geom_signif(comparisons = list(c("Active", "Not Active")),
+                        map_signif_level = TRUE) +
+  #hrbrthemes::theme_ipsum_ps(axis_title_just = "mc") +
+  hrbrthemes::scale_color_ipsum() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "transparent", color = NA_character_),
+        plot.background = element_rect(fill = "transparent", color = NA_character_),
+        text = element_text(size = 20)) + 
+  labs(x = "Den Status",
+       y = "Canopy Closure (%)")
+```
 
 ---
 
@@ -1293,8 +1464,263 @@ class: center, middle, inverse
 
 The next set of slides will compare points randomly sampled across the landscape versus our dens. Compared to just randomly dropping pins on a map of Vancouver Island and Haida Gwaii, how well are we sampling the landscape with our sample of dens?
 
+```{r pseudo dens setup, include = FALSE}
+# pseudo_dens = randomly sampled points on the landscape
+# to compare to our actual sampled dens
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(pseudo_dens))
+
+# First, for the pseudo den data, we're going to make
+# the same assumption as for the real data - this year's
+# den status needs to be paired with last year's forestry.
+# Add 1 from the pseudo data `year` so that the 
+# data runs from 2019-2023, rather than 2020-2024, 
+# because then it will line up with our real data (which
+# only runs until 2023.)
+pseudo_dens$year <- pseudo_dens$year + 1
+
+# Add latitude, longitude cols to data
+pseudo_dens <- cbind(pseudo_dens, st_coordinates(pseudo_dens))
+names(pseudo_dens)[grep("X", names(pseudo_dens))] <- "longitude"
+names(pseudo_dens)[grep("Y", names(pseudo_dens))] <- "latitude"
+
+# Assign either VI or HG to data, to examine by island
+pseudo_dens$region <- ifelse(pseudo_dens$latitude > 800000, "HG", "VI")
+
+##### Assign random den status #####
+
+# Randomly assign a den_status to the pseudo_data, following
+# similar proportions as the actual data
+
+# Pull the % distribution of den statuses from the actual
+# data, then round to the nearest hundreth. We'll use those
+# percentages to simulate den status in the pseudo data.
+status_freq <- round(prop.table(table(f_analysis$den_status)), 2)
+status_freq
+
+# Generate random den status for our pseudo dens
+pseudo_dens$den_status <- sample(names(status_freq), 
+                                 nrow(pseudo_dens), 
+                                 replace = TRUE, 
+                                 prob = status_freq)
+
+# Check that frequencies line up
+prop.table(table(pseudo_dens$den_status))
+
+# Make den status a factor
+pseudo_dens$den_status <- factor(x = pseudo_dens$den_status,
+                                 levels = c("Currently active", #x
+                                            "Active in last denning season", #x
+                                            "Active recently (0-4 seasons)", #x
+                                            "Not active in last season, but recent use (1-4 seasons)", #x
+                                            "Not active in last season, no recent use (>4 seasons)", #x
+                                            "No recent evidence of use (>4 seasons)", #x
+                                            "Not active in last season", #x
+                                            "Obsolete", #x
+                                            "Unknown")) #x
+
+# Bin into binary categories
+pseudo_dens <- pseudo_dens |> 
+  dplyr::mutate(den_status_binary = dplyr::case_when(grepl("^No", den_status) ~ "Not active",
+                                                     den_status == "Obsolete" ~ "Obsolete",
+                                                     den_status == "Unknown" ~ "Unknown",
+                                                     TRUE ~ "Active"))
+
+# Pull our parks shapefiles
+parks1 <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                            tar_read(hg_vi_tantalis_parks))
+parks2 <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                            tar_read(hg_vi_federal_parks))
+
+names(parks2)[2] <- "PROTECTED_LANDS_NAME"
+parks2$PROTECTED_LANDS_DESIGNATION <- "FEDERAL PARK"
+
+parks <- dplyr::bind_rows(parks1, parks2)
+parks <- st_as_sf(parks, wkt = "WKT_GEOM")
+st_crs(parks) <- 3005
+names(parks)[5] <- "geometry" # rename geometry column
+st_geometry(parks) <- "geometry"
+names(parks) <- tolower(names(parks))
+
+rm(parks1, parks2)
+
+# Intersect parks with dens/pseudo_dens, so we know how
+# many pseudo dens were generated inside park lands
+pseudo_dens$in_park <- FALSE
+pseudo_dens[["in_park"]][unlist(st_intersects(parks, pseudo_dens))] <- TRUE
+
+dens$in_park <- FALSE
+dens[["in_park"]][unlist(st_intersects(parks, dens))] <- TRUE
+
+# Merge dens$in_park to f_analysis
+f_analysis <- merge(f_analysis, sf::st_drop_geometry(dens[,c("den_id", "in_park")]))
+
+# And finally pull a shapefile of our study area
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(study_area))
+
+##### Pull verification data #####
+# Then pull our verification data
+# Even though we've manually verified the den data to 
+# be the best it can be, we're still going to compare
+# just the autogenerated GIS forestry data for both
+# groups, to ensure it's an apples-to-apples 
+# comparison.
+fv <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                            tar_read(forestry_verifications_full)) # read data verification results
+pfv <- withr::with_dir(rprojroot::find_root('_targets.R'), 
+                       tar_read(pseudo_forestry_verifications_full)) # pseudo data verification results
+
+# Merge verification data to the spatial data
+f_analysis <- merge(f_analysis, fv, by.x = "sample_id_forest", by.y = "sample_id") # again, merging GIS forestry data for the year PRIOR to the den status year
+pseudo_dens <- merge(pseudo_dens, pfv, by = "sample_id")
+
+
+##### Pull DEM data #####
+# For each pseudo den, we have elevation, slope (%),
+# and slope aspect, extracted from the BC CDED 30m data.
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(pseudo_dens_dem))
+pseudo_dens_dem <- unique(pseudo_dens_dem)
+
+pseudo_dens <- merge(pseudo_dens, pseudo_dens_dem)
+
+rm(pseudo_dens_dem)
+
+# And also clean the DEM data fields in the real data
+f_analysis[["elevation_m"]][which(f_analysis$elevation_m == 999)] <- NA
+f_analysis[["slope_pct"]][which(f_analysis$slope_pct > 200)] <- NA
+f_analysis[["slope_aspect"]][which(f_analysis$slope_aspect > 360)] <- NA
+
+##### Pull age class data #####
+# For each pseudo den, we have the 2023 VRI age class.
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(pseudo_dens_age_class))
+pseudo_dens_age_class <- sf::st_drop_geometry(pseudo_dens_age_class)
+
+pseudo_dens <- merge(pseudo_dens, pseudo_dens_age_class, all.x = TRUE)
+
+rm(pseudo_dens_age_class)
+
+# And also clean up the age class field in the real data
+# This will produce some NAs
+pseudo_dens$proj_age_class_cd_1 <- as.numeric(pseudo_dens$proj_age_class_cd_1)
+f_analysis$proj_age_class_cd_1 <- as.numeric(substring(f_analysis$age_class, 1, 1))
+
+
+
+##### % age class #####
+# already did this for f_analysis in one of the first chunks
+pseudo_prct <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                            tar_read(pseudo_prct_age_class_1.5km))
+
+# Bin the data into groups (sort of ~young, old, medium, very old)
+pseudo_prct$lt_3 <- rowSums(pseudo_prct[,c("age_class_1", "age_class_2")])
+pseudo_prct$gt_3 <- rowSums(pseudo_prct[,6:12])
+pseudo_prct$three_to_7 <- rowSums(pseudo_prct[,6:10])
+pseudo_prct$gt_8 <- rowSums(pseudo_prct[,c("age_class_8", "age_class_9")])
+
+# Merge with den status - so we can look at percent of each
+# age class with activity status
+pseudo_dens <- merge(pseudo_dens, pseudo_prct, by = "sample_id")
+pseudo_dens <- dplyr::select(pseudo_dens, -den_id.y, -year.y)
+names(pseudo_dens)[grep("den_id.x", names(pseudo_dens))] <- "den_id"
+names(pseudo_dens)[grep("year.x", names(pseudo_dens))] <- "year"
+
+
+##### Road density #####
+# `road_density` already loaded in the first chunk
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(pseudo_road_density))
+
+pseudo_road_density <- pseudo_road_density[,c("sample_id", "road_density_m2")]
+
+# Note the all.x = TRUE. If the den isn't in
+# the road density df_analysis, the road density is 0.
+pseudo_dens <- merge(pseudo_dens, pseudo_road_density, by = "sample_id", all.x = TRUE)
+pseudo_dens$road_density_m2 <- ifelse(is.na(pseudo_dens$road_density_m2), 0, pseudo_dens$road_density_m2)
+
+##### Merge datasets #####
+pseudo_dens$type <- "Pseudo"
+f_analysis$type <- "Real"
+
+full <- dplyr::bind_rows(pseudo_dens, f_analysis)
+
+# We'll use the den year sample_id (rather than the forestry year sample id)
+# as the default sample id
+full$sample_id <- ifelse(is.na(full$sample_id), full$sample_id_den, full$sample_id)
+
+# Subset to only columns we care about + full observations
+full <- full |> 
+  dplyr::select(sample_id, den_id, type, year,
+                den_status, den_status_binary,
+                region, latitude, longitude, in_park,
+                elevation_m, slope_pct, slope_aspect,
+                proj_age_class_cd_1,
+                prop_forest_60m, dist_lt40, dist_gt40, dist_road,
+                age_class_1:road_density_m2)
+
+# Filter to only 2019:2023
+full <- full[which(full$year %in% c(2019:2024)), ]
+
+#full <- na.omit(full) # this eliminates a lot of dens with incomplete DEM (slope, elevation, etc.) data
+
+# Rename park variable so it's easier to tell what it is on plots
+full$in_park <- ifelse(full$in_park, "in_park", "not_in_park")
+
+
+##### Distance from edge #####
+# Next, make just one 'distance from edge' variable
+full$dist_from_edge <- ifelse(full$dist_lt40 > 0, full$dist_lt40, full$dist_gt40)
+#hist(full$dist_from_edge)
+full$log_dist_from_edge <- log(full$dist_from_edge + 1)
+#hist(full$log_dist_from_edge)
+
+# Next, say if it's in old, new, or edge of forest.
+full <- full |> dplyr::mutate(dist_lt40 = round(dist_lt40, 0),
+                              dist_gt40 = round(dist_gt40, 0),
+                              age = dplyr::case_when((dist_lt40 == dist_gt40) ~ "on_edge",
+                                               (dist_lt40 > dist_gt40) ~ "within_old",
+                                               (dist_lt40 < dist_gt40) ~ "within_young"))
+
+```
+
+
 ---
 
+`r paste0(round(sum(pseudo_dens$in_park) / nrow(pseudo_dens) * 100, 0), "%")` of the randomly sampled 'pseudo dens' fall within park lands or protected areas, in contrast to only `r paste0(round(sum(dens$in_park) / nrow(dens) * 100, 0), "%")` of the dens sampled in this study.
 
 
+```{r pseudo map}
+##### Map #####
+
+# Set up our map bounding box
+bbox <- st_bbox(study_area)
+bbox[1:2] <- bbox[1:2] - 10000 # add a 10km buffer to our bounding box
+bbox[3:4] <- bbox[3:4] + 10000 # add a 10km buffer to our bounding box
+
+# Pull BC shapefile from rnaturalearth
+bc <- rnaturalearth::ne_states(country = "canada")
+bc <- bc[bc$name == "British Columbia", ]
+bc <- st_transform(bc, 3005) # BC Albers projection
+bc <- st_crop(bc, bbox) # crop to our bounding box area
+
+# Plot time!
+# For the life of me can't figure out why the point size is not
+# changing but that's a low priority thing to fix
+# COMMENTED OUT TO SPEED UP RUNNING THIS SCRIPT
+ggplot() +
+  geom_sf(data = bc, fill = "grey") +
+  geom_sf(data = study_area, fill = "darkgrey") +
+  geom_sf(data = parks, fill = "lightgreen", alpha = 0.4) +
+  geom_sf(data = pseudo_dens,
+          aes(shape = in_park),
+          stroke = NA,
+          alpha = 0.3,
+          size = 0.2) +
+  geom_sf(data = dens,
+          aes(shape = in_park),
+          color = "purple",
+          stroke = NA,
+          size = 0.2) +
+  coord_sf(xlim = c(bbox[1], bbox[3]),
+           ylim = c(bbox[2], bbox[4])) +
+  theme(legend.position = "none") +
+  labs(caption = "Triangle shape indicates the den falls within a provincial/federal park or protected area.")
+```
 
