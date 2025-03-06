@@ -80,19 +80,23 @@ for_sure_dens <- c("Active in last denning season",
 
 # Pull our parks shapefiles
 parks1 <- tar_read(hg_vi_tantalis_parks)
-parks2 <- tar_read(hg_vi_federal_parks)
+parks2 <- tar_read(hg_vi_tantalis_cons_areas)
+parks3 <- tar_read(hg_vi_federal_parks)
 
-names(parks2)[2] <- "PROTECTED_LANDS_NAME"
-parks2$PROTECTED_LANDS_DESIGNATION <- "FEDERAL PARK"
+names(parks2)[1] <- "PROTECTED_LANDS_NAME"
+parks2$PROTECTED_LANDS_DESIGNATION <- "CONSERVANCY AREA"
 
-parks <- dplyr::bind_rows(parks1, parks2)
+names(parks3)[2] <- "PROTECTED_LANDS_NAME"
+parks3$PROTECTED_LANDS_DESIGNATION <- "FEDERAL PARK"
+
+parks <- dplyr::bind_rows(parks1, parks2, parks3)
 parks <- st_as_sf(parks, wkt = "WKT_GEOM")
 st_crs(parks) <- 3005
 names(parks)[5] <- "geometry" # rename geometry column
 st_geometry(parks) <- "geometry"
 names(parks) <- tolower(names(parks))
 
-rm(parks1, parks2)
+rm(parks1, parks2, parks3)
 
 # Intersect parks with dens/pseudo_dens, so we know how
 # many pseudo dens were generated inside park lands

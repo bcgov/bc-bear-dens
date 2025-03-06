@@ -77,6 +77,7 @@ list(
   tar_target(hg_vi_forestry_sections, query_forestry_roads(regions)),
   tar_target(hg_vi_private_land, query_private_land(regions)),
   tar_target(hg_vi_tantalis_parks, query_tantalis_parks(regions)),
+  tar_target(hg_vi_tantalis_cons_areas, query_tantalis_conservancy_areas(regions)),
   tar_target(hg_vi_federal_parks, query_federal_parks(regions)),
   #### Download DEM ####
   tar_target(hg_vi_cded, query_cded(regions = regions, output_dir = "GIS/DEM"), format = "file"),
