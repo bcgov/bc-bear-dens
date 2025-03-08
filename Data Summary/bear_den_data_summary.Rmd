@@ -142,6 +142,16 @@ f <- f |> dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_sta
                                                      den_status == "Unknown" ~ "Unknown",
                                                      TRUE ~ "Unknown"))
 
+# If "Active recently (0-4 seasons)" is the very first data point, 
+# change it to "Active". 
+f <- f |>
+  dplyr::arrange(den_id, date_inspected) |>
+  dplyr::group_by(den_id) |>
+  dplyr::mutate(cumulative_visit = cumsum(!is.na(den_id))) |>
+  dplyr::mutate(den_status_binary = ifelse(cumulative_visit == 1 & den_status == "Active recently (0-4 seasons)",
+                                           "Active",
+                                           den_status_binary))
+
 # Double check our categories
 unique(f[,c("den_status", "den_status_binary")]) |> 
   dplyr::arrange(den_status_binary) |>
@@ -181,6 +191,16 @@ f_analysis <- f_analysis |> dplyr::mutate(den_status_binary = dplyr::case_when(g
                                                      den_status == "Obsolete" ~ "Obsolete",
                                                      den_status == "Unknown" ~ "Unknown",
                                                      TRUE ~ "Unknown"))
+
+# If "Active recently (0-4 seasons)" is the very first data point, 
+# change it to "Active". 
+f_analysis <- f_analysis |>
+  dplyr::arrange(den_id, date_inspected_den) |>
+  dplyr::group_by(den_id) |>
+  dplyr::mutate(cumulative_visit = cumsum(!is.na(den_id))) |>
+  dplyr::mutate(den_status_binary = ifelse(cumulative_visit == 1 & den_status == "Active recently (0-4 seasons)",
+                                           "Active",
+                                           den_status_binary))
 
 # Merge spatial/static den data with analysis subset of field visits
 f_analysis <- merge(dens, f_analysis, by = "den_id")
@@ -603,10 +623,19 @@ class: center
 
 Dens with the highlighted status were considered "confirmed active" within the last season.
 
+.footnote[\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]
+
 ```{r, echo=FALSE}
-knitr::kable(table(f$den_status), col.names = c("Den Status", "N")) |> 
+f |>
+  dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                    "Active recently (0-4 seasons)*",
+                                    den_status)) |>
+  dplyr::pull(den_status) |>
+  table() |>
+  knitr::kable(col.names = c("Den Status", "N")) |> 
   kableExtra::kable_styling() |> 
   kableExtra::row_spec(c(1, 3), bold = TRUE, background = "#b58900") |>
+  kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
   kableExtra::kable_styling(font_size = 14)
 ```
 
@@ -617,8 +646,16 @@ class: center
 
 Dens with the highlighted status were considered "confirmed *not* active" within the last season.
 
+.footnote[\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]
+
 ```{r, echo=FALSE}
-knitr::kable(table(f$den_status), col.names = c("Den Status", "N")) |> 
+f |>
+  dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                    "Active recently (0-4 seasons)*",
+                                    den_status)) |>
+  dplyr::pull(den_status) |>
+  table() |>
+  knitr::kable(col.names = c("Den Status", "N")) |> 
   kableExtra::kable_styling() |> 
   #kableExtra::row_spec(c(1:4), bold = FALSE, background = "#b58900") |>
   kableExtra::row_spec(c(4:7), bold = TRUE, background = "#93a1a1") |>
@@ -633,16 +670,23 @@ class: center
 Dens with the highlighted status were excluded from den status assessments.
 
 
+.footnote[\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]
+
 ```{r, echo=FALSE}
-knitr::kable(table(f$den_status), col.names = c("Den Status", "N")) |> 
+f |>
+  dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                    "Active recently (0-4 seasons)*",
+                                    den_status)) |>
+  dplyr::pull(den_status) |>
+  table() |>
+  knitr::kable(col.names = c("Den Status", "N")) |> 
   kableExtra::kable_styling() |> 
   #kableExtra::row_spec(c(1:4), bold = FALSE, background = "#b58900") |>
   #kableExtra::row_spec(c(5:14), bold = FALSE, background = "#93a1a1") |>
-  kableExtra::row_spec(c(2, 8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
+  kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
+  kableExtra::row_spec(c(8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
   kableExtra::kable_styling(font_size = 14)
 ```
-
-.footnote[*Still thinking on the best way to categorize/utilize "Active Recently (0-4 seasons).*]
 
 ---
 class: center
@@ -651,12 +695,21 @@ class: center
 
 Dens with the highlighted status were excluded from den status assessments.
 
+.footnote[\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]
+
 ```{r, echo=FALSE}
-knitr::kable(table(f$den_status), col.names = c("Den Status", "N")) |> 
+f |>
+  dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                    "Active recently (0-4 seasons)*",
+                                    den_status)) |>
+  dplyr::pull(den_status) |>
+  table() |>
+  knitr::kable(col.names = c("Den Status", "N")) |> 
   kableExtra::kable_styling() |> 
   kableExtra::row_spec(c(1, 3), bold = FALSE, background = "#b58900") |>
+  kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
   kableExtra::row_spec(c(4:7), bold = FALSE, background = "#93a1a1") |>
-  kableExtra::row_spec(c(2, 8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
+  kableExtra::row_spec(c(8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
   kableExtra::kable_styling(font_size = 14)
 ```
 ---
@@ -735,7 +788,8 @@ f <- f |>
 # Create `consecutiveuse_yn` col - if den visited two years in a row
 f <- f |> 
   dplyr::group_by(den_id) |>
-  dplyr::mutate(consecutiveuse_yn = ifelse(cumulative_visit == 1,
+  dplyr::mutate(year_diff = lubridate::year(date_inspected) - dplyr::lag(lubridate::year(date_inspected))) |> # so cumulative visits only count if they're one year apart (e.g., a visit in 2016 and then in 2020 is NOT a cumulative visit)
+  dplyr::mutate(consecutiveuse_yn = ifelse((cumulative_visit == 1 & year_diff == 1),
                                   # If it's the first visit to the den, set `reuse_yn` == NA
                                   NA, 
                                   # Else if it's NOT the first visit, and the previous record says "Active", set `reuse_yn` == TRUE
@@ -778,8 +832,6 @@ f |>
 ```
 
 ---
-
-# Rates of re-use
 
 # Rates of re-use
 
@@ -1132,6 +1184,24 @@ hist(dens$canopy_closure, main = "Histogram of canopy closure", xlab = "Canopy c
 
 ---
 
+### Patch Type
+
+.footnote[Note that not all dens have patch size categorized (N = `r nrow(f[!is.na(f$forestry_treatment_desc), ])` out of `r nrow(f)`).]
+
+```{r fig.height = 5.5}
+ggplot(f[!is.na(f$forestry_treatment_desc),]) + 
+  geom_bar(aes(x = forestry_treatment_desc,
+               fill = forestry_treatment_desc)) +
+  scale_fill_bright(name = "Patch Type") +
+  scale_x_discrete(labels = c("CF", "Edge", "LRP", "MRP", "NR;NS", "NR;SI", "Other", "NA")) +
+  labs(x = "Patch Type",
+       y = "Count") +
+  theme_minimal() #+ 
+  #theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+```
+
+---
+
 ### Proportion forested within 60m
 
 Note this includes all field visits, including dens with repeated visits.
@@ -1412,6 +1482,26 @@ ggplot(f_full, aes(x = den_status_binary,
 
 ---
 
+## Den Status vs Patch Type
+
+```{r}
+chisq <- f_analysis |>
+  sf::st_drop_geometry() |>
+  dplyr::filter(!is.na(forestry_treatment_desc)) |>
+  dplyr::group_by(forestry_treatment_desc, den_status_binary) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = den_status_binary,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "forestry_treatment_desc") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+
+corrplot::corrplot(chisq$residuals, is.corr = FALSE)
+```
+
+---
+
 ## Den Status vs Proportion Forested within 60m
 
 ```{r fig.height = 5.5, echo = FALSE, dev.args=list(bg="transparent")}
@@ -1498,7 +1588,7 @@ y <- f_analysis[f_analysis$f_dist_gt40 > 30 & f_analysis$den_status_binary == "A
 y[,c("den_id", "sample_id", "landscape_unit", "x_den_data_source", "struct_stage", "age_class", "canopy_closure", "den_type", "den_tree_species", "den_tree_dbh", "tree_appearance_code", "forestry_treatment_desc", "f_prop_forest_60m", "f_dist_lt40", "f_dist_gt40", "f_dist_road", "windthrow_code", "lt_3", "three_to_7", "gt_8", "road_density_m2")] |> 
   DT::datatable(options = list(
     pageLength = 8,
-    scrollX = FALSE,
+    scrollX = TRUE,
     initComplete = JS(
       "function(settings, json) {",
       "$(this.api().table().header()).css({'font-size': '50%'});",
@@ -1607,9 +1697,12 @@ pseudo_dens <- pseudo_dens |>
                                                      TRUE ~ "Active"))
 
 # Pull our parks shapefiles
-parks1 <- tar_read(hg_vi_tantalis_parks)
-parks2 <- tar_read(hg_vi_tantalis_cons_areas)
-parks3 <- tar_read(hg_vi_federal_parks)
+parks1 <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                          tar_read(hg_vi_tantalis_parks))
+parks2 <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                          tar_read(hg_vi_tantalis_cons_areas))
+parks3 <- withr::with_dir(rprojroot::find_root('_targets.R'),
+                          tar_read(hg_vi_federal_parks))
 
 names(parks2)[1] <- "PROTECTED_LANDS_NAME"
 parks2$PROTECTED_LANDS_DESIGNATION <- "CONSERVANCY AREA"
