@@ -156,6 +156,13 @@ f <- f |>
 unique(f[,c("den_status", "den_status_binary")]) |> 
   dplyr::arrange(den_status_binary) |>
   knitr::kable()
+
+# Add a column indicating N active and whether or not the den was 
+# ever active
+f <- f |> 
+  dplyr::group_by(den_id) |>
+  dplyr::mutate(active_n = sum(den_status_binary == "Active")) |>
+  dplyr::mutate(ever_active_yn = active_n > 0)
 ```
 
 
@@ -201,6 +208,13 @@ f_analysis <- f_analysis |>
   dplyr::mutate(den_status_binary = ifelse(cumulative_visit == 1 & den_status == "Active recently (0-4 seasons)",
                                            "Active",
                                            den_status_binary))
+
+# Add a column indicating N active and whether or not the den was 
+# ever active
+f_analysis <- f_analysis |> 
+  dplyr::group_by(den_id) |>
+  dplyr::mutate(active_n = sum(den_status_binary == "Active")) |>
+  dplyr::mutate(ever_active_yn = active_n > 0)
 
 # Merge spatial/static den data with analysis subset of field visits
 f_analysis <- merge(dens, f_analysis, by = "den_id")
@@ -944,232 +958,6 @@ f[f$den_id == "SAN_RonningCreek_2", c("den_id", "sample_id", "date_inspected", "
 ---
 class: center, middle, inverse
 
-# Den type/size vs Status
-
----
-
-### Chamber dimensions vs Den Status
-
-```{r, dev.args=list(bg="transparent")}
-label_names <- c(
-  `chamber_width` = "Chamber width",
-  `chamber_height` = "Chamber height",
-  `chamber_length` = "Chamber length"
-)
-
-f |>
-  dplyr::left_join(dens, by = "den_id") |>
-  dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
-                                             den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
-                                             den_status == "Obsolete" ~ "Obsolete",
-                                             den_status == "Unknown" ~ "Unknown",
-                                             TRUE ~ "Unknown")) |>
-  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
-  dplyr::select(den_status_binary, chamber_width, chamber_height, chamber_length) |>
-  tidyr::pivot_longer(cols = c("chamber_width", "chamber_height", "chamber_length"),
-                      names_to = "Measurement",
-                      values_to = "cm") |>
-  ggplot(aes(x = den_status_binary,
-             y = cm,
-             color = den_status_binary)) +
-  geom_boxplot(fill = NA) +
-  geom_jitter() +
-  ggsignif::geom_signif(comparisons = list(c("Active", "Not Active")),
-                        map_signif_level = TRUE) +
-  hrbrthemes::scale_color_ipsum() +
-  theme(legend.position = "none",
-        panel.background = element_rect(fill = "transparent", color = NA_character_),
-        plot.background = element_rect(fill = "transparent", color = NA_character_),
-        text = element_text(size = 20)) + 
-  labs(x = "Den Status",
-       y = "Measurement (cm)") +
-  facet_wrap(~ Measurement, labeller = as_labeller(label_names))
-```
-
----
-
-### Den type vs Den Status
-
-Root bole type dens disproportionately have more activity.
-
-```{r}
-chisq <- f |>
-  dplyr::left_join(dens, by = "den_id") |>
-  dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
-                                             den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
-                                             den_status == "Obsolete" ~ "Obsolete",
-                                             den_status == "Unknown" ~ "Unknown",
-                                             TRUE ~ "Unknown")) |>
-  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
-  dplyr::group_by(den_type, den_status_binary) |>
-  dplyr::tally() |>
-  tidyr::pivot_wider(names_from = den_type,
-                     values_from = n) |>
-  dplyr::mutate(den_status_binary = dplyr::if_else(!is.na(den_status_binary), den_status_binary, "NA")) |>
-  tibble::column_to_rownames(var = "den_status_binary") |>
-  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
-  as.matrix() |>
-  chisq.test()
-
-corrplot::corrplot(chisq$residuals, is.corr = FALSE)
-```
-
----
-
-### Bed Cup vs Den Status
-
-Active dens disproportionately have a bedding cup (makes sense - it's one of the decision criteria).
-
-```{r}
-chisq <- f |>
-  dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
-                                             den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
-                                             den_status == "Obsolete" ~ "Obsolete",
-                                             den_status == "Unknown" ~ "Unknown",
-                                             TRUE ~ "Unknown")) |>
-  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
-  dplyr::group_by(bedding_cup_present, den_status_binary) |>
-  dplyr::tally() |>
-  tidyr::pivot_wider(names_from = bedding_cup_present,
-                     values_from = n) |>
-  dplyr::mutate(den_status_binary = dplyr::if_else(!is.na(den_status_binary), den_status_binary, "NA")) |>
-  tibble::column_to_rownames(var = "den_status_binary") |>
-  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
-  as.matrix() |>
-  chisq.test()
-
-corrplot::corrplot(chisq$residuals, is.corr = FALSE)
-```
-
----
-
-### Hair in Bed vs Den Status
-
-Active dens disproportionately have hair in the bed (makes sense - it's one of the decision criteria).
-
-```{r}
-chisq <- f |>
-  dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
-                                             den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
-                                             den_status == "Obsolete" ~ "Obsolete",
-                                             den_status == "Unknown" ~ "Unknown",
-                                             TRUE ~ "Unknown")) |>
-  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
-  dplyr::group_by(hair_in_bed, den_status_binary) |>
-  dplyr::tally() |>
-  tidyr::pivot_wider(names_from = hair_in_bed,
-                     values_from = n) |>
-  dplyr::mutate(den_status_binary = dplyr::if_else(!is.na(den_status_binary), den_status_binary, "NA")) |>
-  tibble::column_to_rownames(var = "den_status_binary") |>
-  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
-  as.matrix() |>
-  chisq.test()
-
-corrplot::corrplot(chisq$residuals, is.corr = FALSE)
-```
-
----
-
-### Hair on Entrance vs Den Status
-
-Active dens disproportionately have hair on the entrance (makes sense - it's one of the decision criteria).
-
-```{r}
-chisq <- f |>
-  dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
-                                             den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
-                                             den_status == "Obsolete" ~ "Obsolete",
-                                             den_status == "Unknown" ~ "Unknown",
-                                             TRUE ~ "Unknown")) |>
-  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
-  dplyr::group_by(hair_on_entrance, den_status_binary) |>
-  dplyr::tally() |>
-  tidyr::pivot_wider(names_from = hair_on_entrance,
-                     values_from = n) |>
-  dplyr::mutate(den_status_binary = dplyr::if_else(!is.na(den_status_binary), den_status_binary, "NA")) |>
-  tibble::column_to_rownames(var = "den_status_binary") |>
-  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
-  as.matrix() |>
-  chisq.test()
-
-corrplot::corrplot(chisq$residuals, is.corr = FALSE)
-```
-
-
----
-class: center, middle, inverse
-
-# Geography vs Status
-
----
-
-### Elevation
-
-```{r}
-f_full |>
-  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
-  ggplot(aes(x = den_status_binary, 
-             y = elevation_m,
-             color = den_status_binary)) +
-  geom_boxplot(fill = NA) +
-  geom_jitter() +
-  scale_color_bright() +
-  geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
-  theme_minimal() +
-  labs(x = "Den Status",
-       y = "Elevation (m)",
-       title = "Den Status vs. Elevation (m)",
-       subtitle = "All categories binned into either 'Active' or 'Not active'") 
-```
-
----
-
-### Slope grade (%)
-
-```{r}
-f_full |>
-  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
-  ggplot(aes(x = den_status_binary, 
-             y = slope_pct,
-             color = den_status_binary)) +
-  geom_boxplot(fill = NA) +
-  geom_jitter() +
-  scale_color_bright() +
-  geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
-  theme_minimal() +
-  labs(x = "Den Status",
-       y = "Slope Grade (%)",
-       title = "Den Status vs. Slope (%)",
-       subtitle = "All categories binned into either 'Active' or 'Not active'") 
-
-```
-
----
-
-### Slope aspect (degrees)
-
-```{r}
-f_full |>
-  dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
-  ggplot(aes(x = den_status_binary, 
-             y = slope_aspect,
-             color = den_status_binary)) +
-  geom_boxplot(fill = NA) +
-  geom_jitter() +
-  scale_color_bright() +
-  geom_signif(comparisons = list(c("Active", "Not Active")), map_signif_level = TRUE) +
-  theme_minimal() +
-  labs(x = "Den Status",
-       y = "Slope Aspect",
-       title = "Den Status vs. Slope Aspect",
-       subtitle = "All categories binned into either 'Active' or 'Not active'") 
-
-```
-
-
----
-class: center, middle, inverse
-
 # Forestry summary data
 
 ---
@@ -1621,6 +1409,55 @@ ggplot(f_analysis, aes(x = den_status_binary,
         text = element_text(size = 20)) +
   labs(x = "Den Status",
        y = "LOG Distance to nearest road")
+```
+
+---
+
+## Den Status vs Proportion Old Growth
+
+'Old growth' being % coverage of age class 8 or 9 within 1.5km of the den.
+
+```{r, echo = FALSE, dev.args=list(bg="transparent")}
+ggplot(f_analysis, aes(x = den_status_binary, 
+                       y = gt_8,
+                       color = den_status_binary)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  ggsignif::geom_signif(comparisons = list(c("Active", "Not Active")),
+                        map_signif_level = TRUE) +
+  #hrbrthemes::theme_ipsum_ps(axis_title_just = "mc") +
+  hrbrthemes::scale_color_ipsum() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "transparent", color = NA_character_),
+        plot.background = element_rect(fill = "transparent", color = NA_character_),
+        text = element_text(size = 20)) +
+  labs(x = "Den Status",
+       y = "Old Growth within 1.5km (%)")
+```
+
+---
+
+## Den Status vs Distance to New Growth
+
+'New growth' being % coverage of age class 1 or 2 within 1.5km of the den.
+
+```{r, echo = FALSE, dev.args=list(bg="transparent")}
+ggplot(f_analysis, aes(x = den_status_binary, 
+                       y = lt_3,
+                       color = den_status_binary)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  ggsignif::geom_signif(comparisons = list(c("Active", "Not Active")),
+                        map_signif_level = TRUE) +
+  #hrbrthemes::theme_ipsum_ps(axis_title_just = "mc") +
+  hrbrthemes::scale_color_ipsum() +
+  scale_y_continuous(limits = c(0,100)) +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "transparent", color = NA_character_),
+        plot.background = element_rect(fill = "transparent", color = NA_character_),
+        text = element_text(size = 20)) +
+  labs(x = "Den Status",
+       y = "New Growth within 1.5km (%)")
 ```
 
 
@@ -2388,32 +2225,35 @@ Let's focus on this one.
 
 ## Question 1
 
-Let's take a look at what the first modeling pass looked like.
-
----
-
-## Question 1
-
 Candidate models:
 
 ```
+den status ~ year                # control for yearly variation in bear activity
+den status ~ region              # do dens have different usage by region?
 den status ~ proportion forested # do dens with more intact forest have more activity?
 den status ~ distance <40        # do dens further from cutblocks have more activity?
 den status ~ distance >40        # do dens further from old growth have less activity?
 den status ~ distance to road    # do dens further from roads have more activity?
 den status ~ road density        # do dens with higher road density have less activity?
 den status ~ stand age           # do dens in older stand age have more activity?
-den status ~ % old growth        # do dons with higher % old growth nearby have more activity?
+den status ~ % old growth        # do dens with higher % old growth nearby have more activity?
 den status ~ % new growth        # do dens with higher % new growth nearby have less activity?
+
+# + interactions with stand age
+den status ~ distance to road * stand age # does distance to road matter in old vs young stands?
 ```
 
+---
 
-A priori sets:
-- Den status versus stand level forestry metrics (% forested within 60m, distance to edge of block, etc.)
-- Den status versus landscape level metrics (road density within 1.5 km, % old growth within 1.5 km, etc.)
-- Den status versus stand-landscape interaction (e.g., would a high quality stand within a low quality landscape attract more bears?)
-- Den status versus den characterstics (is a nicer den more used, regardless of the forest around it?)
-  - Can't directly compare to forestry models bc different sample sizes
+## Question 1
+
+In addition to these simple one variable models, we also tried a "kitchen sink" approach, with all non-correlated variables within a single model:
+
+```
+den status ~ year + region + proportion forested + 
+             distance to edge + stand age + 
+             road density
+```
 
 ---
 
@@ -2442,13 +2282,543 @@ f_analysis |>
   GGally::ggpairs()
 ```
 
+---
+
+## Question 1
+
+Data summary: 
+- Colinear model terms are excluded from the full "kitchen sink" model.
+- Data are strictly filtered down to "Active" and "Not Active" dens where we _for sure_ know the den status. I.e., exluding "Active within past 4 years" or "Unknown" status dens.
+
+---
+
+## Question 1
+
+By far and away, `model00` is consistently the best fit:
+
+```{r}
+# The modeling data
+dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active") & f_analysis$den_status %in% for_sure_dens, ]
+dat <- dat[, c("den_status_binary", "den_id", "year", "age", 
+               "region", "latitude", "longitude",
+               "f_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road",
+               "log_dist_from_edge", "lt_3", "gt_8", "road_density_m2")]
+dat <- sf::st_drop_geometry(dat)
+dat <- dat[complete.cases(dat),]
+
+# Convert den_status_binary to 0 or 1
+dat$den_status_binary <- ifelse(dat$den_status_binary == "Active", 1, 0)
+
+# Let's drop "on_edge" bc it's perfectly == 0 in distance.
+#dat <- dat[which(dat$age != "on_edge"),]
+# JK - in this case, just categorize it as 'within young' because
+# the kitchen sink model was the best fit, and don't wanna show
+# NAs in our results summary table.
+dat[["age"]][dat$dist_from_edge == 0] <- "within_young"
+dat$age <- factor(dat$age, levels = c("within_young", "within_old"))
+
+# Fit the models!
+# Just the basics - each forest metric - effectively same as examining boxplots for significance
+model00 <- glm(den_status_binary ~ year, data = dat, family = binomial)
+model0r <- glm(den_status_binary ~ region, data = dat, family = binomial)
+model0a <- glm(den_status_binary ~ f_prop_forest_60m , data = dat, family = binomial)
+model0b <- glm(den_status_binary ~ log_dist_lt40 , data = dat, family = binomial)
+model0c <- glm(den_status_binary ~ log_dist_gt40 , data = dat, family = binomial)
+model0d <- glm(den_status_binary ~ age, data = dat, family = binomial)
+model0e <- glm(den_status_binary ~ log_dist_from_edge , data = dat, family = binomial)
+model0f <- glm(den_status_binary ~ log_dist_from_edge * age , data = dat, family = binomial)
+model0g <- glm(den_status_binary ~ log_dist_road , data = dat, family = binomial)
+model0h <- glm(den_status_binary ~ log_dist_road * age , data = dat, family = binomial)
+model0i <- glm(den_status_binary ~ gt_8 , data = dat, family = binomial)
+model0j <- glm(den_status_binary ~ lt_3 , data = dat, family = binomial)
+model0k <- glm(den_status_binary ~ road_density_m2 , data = dat, family = binomial)
+model0l <- glm(den_status_binary ~ gt_8 + log_dist_lt40 , data = dat, family = binomial)
+model0m <- glm(den_status_binary ~ gt_8 + f_prop_forest_60m , data = dat, family = binomial)
+model0n <- glm(den_status_binary ~ road_density_m2 + log_dist_road , data = dat, family = binomial)
+model0o <- glm(den_status_binary ~ log_dist_lt40 * region, data = dat, family = binomial)
+
+model1 <- glm(den_status_binary ~ year + region + f_prop_forest_60m + log_dist_from_edge * age + road_density_m2, data = dat, family = binomial)
+
+models_names <- ls()[grep("model0|model1", ls())]
+models_list <- lapply(models_names, get)
+names(models_list) <- models_names
+bbmle::AICtab(models_list, weights = TRUE) # They are all almost identical models in terms of AIC! delta AIC >= 4 == better fit
+
+```
+
+---
+
+## Question 1
+
+`model00` happens to be the base model that simply tries to control for increases in bear den activity as a result of more dens monitored over time...
+
+```{r}
+summary(model00)
+```
+
+---
+
+## Question 1
+
+`model0` happens to be the base model that simply tries to control for increases in bear den activity as a result of more dens monitored over time...
+
+```{r}
+f |> 
+  dplyr::mutate(year = lubridate::year(date_inspected)) |>
+  ggplot(aes(x = year)) +
+  geom_bar() +
+  scale_x_continuous(breaks = 2014:2024) +
+  labs(x = "Year",
+       y = "N field visits",
+       title = "Number of field visits per year") +
+  theme_minimal() 
+```
+
+
+---
+
+## Question 1
+
+The next-best fit is `model1`, or the full "kitchen sink" model. And, unfortunately, it seems to be the next-best fit model simply because it includes `year` as a parameter. No forestry effects are significant:
+
+```{r}
+summary(model1)
+```
+
+---
+
+## Question 1
+
+When we go more lenient with our strict data criteria, and decide to include "Active within last 4 years" as "Active", rather than "Unknown", we get nearly identical results. 
+
+---
+
+## Question 1
+
+When we go more lenient with our strict data criteria, and decide to include "Active within last 4 years" as "Active", rather than "Unknown", we get nearly identical results. 
+
+What about modeling the response variable as `hair_in_bed`?
+
+---
+
+## Question 1
+
+When we go more lenient with our strict data criteria, and decide to include "Active within last 4 years" as "Active", rather than "Unknown", we get nearly identical results. 
+
+What about modeling the response variable as `hair_in_bed`?
+- It's more objective than the activity status column.
+- But, it simply tells us whether or not a bear has visited the den.
+
+---
+
+## Question 1 _ish_
+
+Candidate models:
+
+```
+hair in den ~ year                
+hair in den ~ region              
+hair in den ~ proportion forested 
+hair in den ~ distance <40        
+hair in den ~ distance >40        
+hair in den ~ distance to road    
+hair in den ~ road density        
+hair in den ~ stand age           
+hair in den ~ % old growth        
+hair in den ~ % new growth        
+
+# + interactions with stand age
+hair in den ~ distance to road * stand age 
+
+# + full model
+hair in den ~ year + region + proportion forested + 
+              distance to edge + stand age + 
+              road density
+```
+
+---
+
+## Question 1 _ish_
+
+Results are pretty much the same.... :(
+
+Year is the biggest thing driving any trends (summary of the full model, which also happens to be the best-fit model):
+
+```{r}
+# The modeling data
+dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active") & f_analysis$den_status %in% for_sure_dens, ]
+dat <- dat[, c("hair_in_bed", "den_status_binary", "den_id", "year", "age", 
+               "region", "latitude", "longitude",
+               "f_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road",
+               "log_dist_from_edge", "lt_3", "gt_8", "road_density_m2")]
+dat <- sf::st_drop_geometry(dat)
+dat <- dat[complete.cases(dat),]
+
+# Convert y to 0 or 1
+dat$y <- ifelse(dat$hair_in_bed %in% c("Yes", "Yes - Unchanged"), 1, 0)
+
+# Let's drop "on_edge" bc it's perfectly == 0 in distance.
+#dat <- dat[which(dat$age != "on_edge"),]
+# JK - in this case, just categorize it as 'within young' because
+# the kitchen sink model was the best fit, and don't wanna show
+# NAs in our results summary table.
+dat[["age"]][dat$dist_from_edge == 0] <- "within_young"
+dat$age <- factor(dat$age, levels = c("within_young", "within_old"))
+
+# Fit the models!
+# Just the basics - each forest metric - effectively same as examining boxplots for significance
+model00 <- glm(y ~ year, data = dat, family = binomial)
+model0r <- glm(y ~ region, data = dat, family = binomial)
+model0a <- glm(y ~ f_prop_forest_60m , data = dat, family = binomial)
+model0b <- glm(y ~ log_dist_lt40 , data = dat, family = binomial)
+model0c <- glm(y ~ log_dist_gt40 , data = dat, family = binomial)
+model0d <- glm(y ~ age, data = dat, family = binomial)
+model0e <- glm(y ~ log_dist_from_edge , data = dat, family = binomial)
+model0f <- glm(y ~ log_dist_from_edge * age , data = dat, family = binomial)
+model0g <- glm(y ~ log_dist_road , data = dat, family = binomial)
+model0h <- glm(y ~ log_dist_road * age , data = dat, family = binomial)
+model0i <- glm(y ~ gt_8 , data = dat, family = binomial)
+model0j <- glm(y ~ lt_3 , data = dat, family = binomial)
+model0k <- glm(y ~ road_density_m2 , data = dat, family = binomial)
+model0l <- glm(y ~ gt_8 + log_dist_lt40 , data = dat, family = binomial)
+model0m <- glm(y ~ gt_8 + f_prop_forest_60m , data = dat, family = binomial)
+model0n <- glm(y ~ road_density_m2 + log_dist_road , data = dat, family = binomial)
+model0o <- glm(y ~ log_dist_lt40 * region, data = dat, family = binomial)
+
+model1 <- glm(y ~ year + region + f_prop_forest_60m + log_dist_from_edge * age + road_density_m2, data = dat, family = binomial)
+
+models_names <- ls()[grep("model0|model1", ls())]
+models_list <- lapply(models_names, get)
+names(models_list) <- models_names
+#bbmle::AICtab(models_list, weights = TRUE) # They are all almost identical models in terms of AIC! delta AIC >= 4 == better fit
+
+summary(model1)
+```
+
+---
+
+## Question 1: overall summary
+
+- No forestry variables jumped out as significantly influential on den activity status.
+- Instead, `year` explained much of the variance - likely because we visited many more dens in later years rather than older years.
+
+Ways forward?
+- Perhaps some sort of weights/error structure can account for year without it "swamping" the model?
+- Perhaps a bootstrapping approach to account for uneven years sampling: pull a random year of data - one per each den - then fit the model. Do this 1000x. Take the model averages.
+- Perhaps running piecewise models: one for 'pre disturbance' den data, one for 'post disturbance'?
+- Non-linear modeling approaches: perhaps a principal components analysis (PCA)?
+- And finally, and perhaps most likely, we simply **need a greater sample size.** A priori power analysis indicated we'd need >400 dens sampled, but the modeling dataset is only `r nrow(dat)` data points!
 
 ---
 class: center, middle, inverse
 
 # Question 2: Do non-forestry conditions influence den activity?
 
-TODO: use the "has a den ever been used" as the response for the boxplots
+---
+
+## Question 2
+
+**Question:** [TODO: longer/detailed Q here] Relationship btwn den measurements & non-forestry geography vs den status
+
+---
+
+## Question 2
+
+**Question:** [TODO: longer/detailed Q here]
+
+**Prediction:** [TODO: longer/detailed P here]
+
+---
+
+For all the following plots, the response variable indicates whether or not the den was *ever* active (`ever_active_yn == TRUE`) or has *never* been active (`ever_active_yn == FALSE`). 
+This is done to reduce psuedoreplication (many repeats of static den measurements versus changing den status each year), such that there is one data point per den (single static den measurements versus single "was the den active" response).
+
+---
+
+### Chamber dimensions vs Den Status
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+```{r, dev.args=list(bg="transparent")}
+label_names <- c(
+  `chamber_width` = "Chamber width",
+  `chamber_height` = "Chamber height",
+  `chamber_length` = "Chamber length"
+)
+
+f |>
+  dplyr::left_join(dens, by = "den_id") |>
+  dplyr::select(ever_active_yn, chamber_width, chamber_height, chamber_length) |>
+  distinct() |>
+  tidyr::pivot_longer(cols = c("chamber_width", "chamber_height", "chamber_length"),
+                      names_to = "Measurement",
+                      values_to = "cm") |>
+  ggplot(aes(x = ever_active_yn,
+             y = cm,
+             color = ever_active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  ggsignif::geom_signif(comparisons = list(c("FALSE", "TRUE")),
+                        map_signif_level = TRUE) +
+  hrbrthemes::scale_color_ipsum() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "transparent", color = NA_character_),
+        plot.background = element_rect(fill = "transparent", color = NA_character_),
+        text = element_text(size = 20)) + 
+  labs(x = "Has the den ever been active?",
+       y = "Measurement (cm)") +
+  facet_wrap(~ Measurement, labeller = as_labeller(label_names))
+```
+
+---
+
+### DBH vs Den Status
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+```{r}
+f |>
+  dplyr::left_join(dens, by = "den_id") |>
+  dplyr::select(den_tree_dbh, ever_active_yn) |>
+  distinct() |>
+  ggplot(aes(x = ever_active_yn, 
+             y = den_tree_dbh,
+             color = ever_active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  scale_color_bright() +
+  geom_signif(comparisons = list(c("TRUE", "FALSE")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Has the den ever been active?",
+       y = "Den Tree DBH (cm)",
+       title = "Den Status vs. Den Tree DBH (cm)",
+       subtitle = "Binned into dens that have ever vs never been active.",
+       caption = paste0("N = ", length(unique(f$den_id)))
+       ) 
+```
+
+---
+
+### Den type vs Den Status
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+Root bole type dens disproportionately have more activity.
+
+```{r}
+chisq <- f |>
+  dplyr::left_join(dens, by = "den_id") |>
+  dplyr::select(ever_active_yn, den_type) |>
+  distinct() |>
+  dplyr::group_by(den_type, ever_active_yn) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = den_type,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "ever_active_yn") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+
+corrplot::corrplot(chisq$residuals, is.corr = FALSE)
+```
+
+---
+
+### Den tree species vs Den Status
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+Root bole type dens disproportionately have more activity.
+
+```{r}
+chisq <- f |>
+  dplyr::left_join(dens, by = "den_id") |>
+  dplyr::select(ever_active_yn, den_tree_species) |>
+  distinct() |>
+  dplyr::group_by(den_tree_species, ever_active_yn) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = den_tree_species,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "ever_active_yn") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+
+corrplot::corrplot(chisq$residuals, is.corr = FALSE)
+```
+
+---
+
+### Bed Cup vs Den Status
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+Active dens disproportionately have a bedding cup (makes sense - it's one of the decision criteria).
+
+```{r}
+chisq <- f |>
+  dplyr::select(bedding_cup_present, ever_active_yn) |>
+  distinct() |>
+  dplyr::group_by(bedding_cup_present, ever_active_yn) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = bedding_cup_present,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "ever_active_yn") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+
+corrplot::corrplot(chisq$residuals, is.corr = FALSE)
+```
+
+---
+
+### Hair in Bed vs Den Status
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+Active dens disproportionately have hair in the bed (makes sense - it's one of the decision criteria).
+
+```{r}
+chisq <- f |>
+  dplyr::select(hair_in_bed, ever_active_yn) |>
+  distinct() |>
+  dplyr::group_by(hair_in_bed, ever_active_yn) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = hair_in_bed,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "ever_active_yn") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+
+corrplot::corrplot(chisq$residuals, is.corr = FALSE)
+```
+
+---
+
+### Hair on Entrance vs Den Status
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+Active dens disproportionately have hair on the entrance (makes sense - it's one of the decision criteria).
+
+```{r}
+chisq <- f |>
+  dplyr::select(hair_on_entrance, ever_active_yn) |>
+  distinct() |>
+  dplyr::group_by(hair_on_entrance, ever_active_yn) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = hair_on_entrance,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "ever_active_yn") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+
+corrplot::corrplot(chisq$residuals, is.corr = FALSE)
+```
+
+
+---
+
+### Elevation
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+```{r}
+f |>
+  dplyr::left_join(dens, by = "den_id") |>
+  dplyr::select(elevation_m, ever_active_yn) |>
+  distinct() |>
+  ggplot(aes(x = ever_active_yn, 
+             y = elevation_m,
+             color = ever_active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  scale_color_bright() +
+  geom_signif(comparisons = list(c("TRUE", "FALSE")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Has the den ever been active?",
+       y = "Elevation (m)",
+       title = "Den Status vs. Elevation (m)",
+       subtitle = "Binned into dens that have ever vs never been active.",
+       caption = paste0("N = ", length(unique(f$den_id)))
+       ) 
+```
+
+---
+
+### Slope grade (%)
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+```{r}
+f |>
+  dplyr::left_join(dens, by = "den_id") |>
+  dplyr::select(slope_pct, ever_active_yn) |>
+  distinct() |>
+  ggplot(aes(x = ever_active_yn, 
+             y = slope_pct,
+             color = ever_active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  scale_color_bright() +
+  geom_signif(comparisons = list(c("TRUE", "FALSE")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Has the den ever been active?",
+       y = "Slope Grade (%)",
+       title = "Den Status vs. Slope (%)",
+       subtitle = "Binned into dens that have ever vs never been active.",
+       caption = paste0("N = ", length(unique(f$den_id)))
+       ) 
+
+```
+
+---
+
+### Slope aspect (degrees)
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+```{r}
+f |>
+  dplyr::left_join(dens, by = "den_id") |>
+  dplyr::select(slope_aspect, ever_active_yn) |>
+  distinct() |>
+  ggplot(aes(x = ever_active_yn, 
+             y = slope_aspect,
+             color = ever_active_yn)) +
+  geom_boxplot(fill = NA) +
+  geom_jitter() +
+  scale_color_bright() +
+  geom_signif(comparisons = list(c("TRUE", "FALSE")), map_signif_level = TRUE) +
+  theme_minimal() +
+  labs(x = "Has the den ever been active?",
+       y = "Slope Aspect",
+       title = "Den Status vs. Slope Aspect",
+       subtitle = "Binned into dens that have ever vs never been active.",
+       caption = paste0("N = ", length(unique(f$den_id)))
+       ) 
+
+```
+
+---
+
+## Question 2
+
+Overall, whether or not a den was ever active during the monitoring period does not appear to be significantly influenced by either den qualities (e.g. chamber width, height) or non-forestry geography (e.g., elevation, slope). 
+
 
 ---
 class: center, middle, inverse
