@@ -51,6 +51,7 @@ library(magrittr) # data manipulation
 library(ggplot2)  # plotting
 library(ggsignif) # plotting significance/t-test/wilcox test on boxplots
 library(khroma)   # plotting color schemes
+library(glmmTMB)  # modeling
 
 # Read in tokens
 # For this specific markdown file, we need the 'jawg_token' to load
@@ -2518,15 +2519,15 @@ class: center, middle, inverse
 
 ## Question 2
 
-**Question:** [TODO: longer/detailed Q here] Relationship btwn den measurements & non-forestry geography vs den status
+**Question:** How do intrinsic den characteristics, such as den cavity size and shape, tree species, or position on the slope relate to den use?
 
 ---
 
 ## Question 2
 
-**Question:** [TODO: longer/detailed Q here]
+**Question:** How do intrinsic den characteristics, such as den cavity size and shape, tree species, or position on the slope relate to den use?
 
-**Prediction:** [TODO: longer/detailed P here]
+**Prediction:** The likelihood of den use is positively correlated with certain den sizes, tree species, and slopes.
 
 ---
 
@@ -2823,7 +2824,295 @@ Overall, whether or not a den was ever active during the monitoring period does 
 ---
 class: center, middle, inverse
 
-# Question 3: Does windthrow affect den activity?
+# Question 3A: Does forestry condition affect windthrow probability?
+
+# Question 3B: Does windthrow severity affect den activity?
+
+---
+
+## Question 3A
+
+**Question:** How does forestry condition, such as distance from cutblock edge, retention patch size, and harvest status influence the amount of windthrow in a given area?
+
+---
+
+## Question 3A
+
+**Question:** How does forestry condition, such as distance from cutblock edge, retention patch size, and harvest status influence the amount of windthrow in a given area?
+
+**Prediction:** The probability of windthrow occuring within a given area will be greater the closer to a cutblock edge that area is. Locations within smaller retention patch sizes and within 60m of harvest are more likely to have windthrow than locations in larger retention patches and futher from harvest.
+
+```{r windthrow prep, include = FALSE}
+# This code block preps the dataframe to run Gavin's windthrow 
+# analyses. 
+
+# Order the windthrow codes by severity
+f$windthrow_code <- factor(f$windthrow_code, 
+                           levels = c("None", 
+                                      "At risk", 
+                                      "Windthrow adjacent (>5%)",
+                                      "Windthrow adjacent - catastrophic (>25%)",
+                                      "Windthrow block access",
+                                      "Den tree top blown",
+                                      "Den tree blown over"))
+
+# Create a patch variable that orders forestry treatments
+# by patch size + makes shorter labels for plots
+f$patch <- factor(f$forestry_treatment_desc,
+                  levels = c("Contiguous Forest within >60m radius",
+                             "Large retention patch (30-60m radius or 2830-11300 m2)",
+                             "Medium retention patch (10-30m radius or 314-2830m2)",
+                             "Edge of block (within 5m)",
+                             "Other"),
+                  labels = c("Contiguous",
+                             "Large RP",
+                             "Med. RP",
+                             "Edge (<5 m)",
+                             "Other"))
+
+# Create a harvested varianle
+f$harvested <- ifelse((f$f_prop_forest_60m < 100 & (f$f_dist_lt40 <= 60 | f$f_dist_road <= 60)),
+                      "Harvested",
+                      "Not harvested")
+f$harvested_yn <- ifelse(f$harvested == "Harvested",
+                         TRUE,
+                         FALSE)
+
+# Categorize windthrow codes into severity categories
+f <- f |>
+  dplyr::mutate(windthrow_sev = dplyr::case_when(windthrow_code == "None" ~ "Insignificant",
+                                                 windthrow_code == "At risk" ~ "At risk",
+                                                 windthrow_code == "Windthrow adjacent (>5%)" ~ "Moderate",
+                                                 windthrow_code %in% c("Windthrow adjacent - catastrophic (>25%)",
+                                                                       "Windthrow block access",
+                                                                       "Den tree top blown",
+                                                                       "Den tree blown over") ~ "Severe",
+                                                 TRUE ~ NA))
+
+f$windthrow_sev <- factor(f$windthrow_sev,
+                          levels = c("Insignificant",
+                                     "At risk",
+                                     "Moderate",
+                                     "Severe"))
+
+# NOTE THIS IS DIFFERENT TO THE `distance_from_edge` VARIABLE
+# CREATED ELSEWHERE IN THIS DOCUMENT
+# The previous analysis lumped together distance from edge
+# to <40 yo forest and distance to road. They were both
+# considered 'disturbed' forest edges susceptible to windthrow.
+
+# Choose whichever one is the lower value
+f$dist_to_edge <- ifelse(f$f_dist_lt40 < f$f_dist_road,
+                         f$f_dist_lt40,
+                         f$f_dist_road)
+```
+
+---
+
+Windthrow is categorized by estimating the proportion of trees within a 60m radius of a given point (lat, lon of a den) that are windthrown.
+
+```{r}
+ggplot(f,
+       aes(x = windthrow_code)) +
+  geom_bar() +
+  labs(x = "Windthrow Code",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+---
+
+Windthrow is categorized by estimating the proportion of trees within a 60m radius of a given point (lat, lon of a den) that are windthrown.
+
+```{r}
+summary(f$windthrow_prct)
+
+ggplot(f,
+       aes(x = windthrow_prct)) +
+  geom_density() +
+  labs(x = "Windthrow (%)",
+       y = "Density") +
+  scale_x_continuous(limits = c(0, 100)) +
+  theme_minimal()
+```
+
+---
+
+Windthrow is categorized by estimating the proportion of trees within a 60m radius of a given point (lat, lon of a den) that are windthrown.
+
+```{r}
+f[!is.na(f$patch), ] |>
+  ggplot(aes(x = patch,
+             y = windthrow_prct)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) +
+  labs(x = "Patch size (category)",
+       y = "Windthrow (%)") +
+  scale_y_continuous(limits = c(0, 100)) +
+  theme_minimal()
+```
+
+---
+
+Harvest status is determined by the % tree coverage within 60m of a given point. If a road cuts through the forest OR there is forest <40 years old within 60m of that point, it counts as "harvested". Areas within 60m naturally unforested areas, such as the edge of a lake, would NOT count as "harvested" under these critera.
+
+```{r}
+ggplot(f[!is.na(f$harvested), ],
+       aes(x = harvested)) +
+  geom_bar() +
+  labs(x = "Harvest status", 
+       y = "Count") +
+  theme_minimal()
+```
+
+---
+
+Harvested areas have significantly higher % windthrow.
+
+```{r}
+f[!is.na(f$harvested), ] |>
+  ggplot(aes(x = harvested,
+           y = windthrow_prct)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) +
+  geom_signif(comparisons = list(c("Harvested", "Not harvested")),
+              map_signif_level = TRUE,
+              test = "wilcox.test") +
+  labs(x = "Harvest status", 
+       y = "Windthrow (%)") +
+  theme_minimal()
+```
+
+---
+
+Distance to edge is the distance to any hard forest edge caused by harvest activity, including distance to <40 yo forest or distance to road (whichever was closer).
+
+```{r}
+ggplot(f[which(f$dist_to_edge < 6000), ],
+       aes(x = dist_to_edge,
+           y = windthrow_prct)) +
+  #scale_x_log10() +
+  scale_y_continuous(limits = c(0, 100)) +
+  geom_point() + 
+  labs(title = "Distance to Edge vs Windthrow (%)",
+       x = "Distance to Edge",
+       y = "Windthrow (%)") +
+  theme_minimal()
+```
+
+---
+
+```{r}
+dat <- f[,c("windthrow_prct", "dist_to_edge")]
+dat <- na.omit(dat)
+dat$dist_to_edge <- log(dat$dist_to_edge + 1)
+dat <- dat[dat$dist_to_edge < 6000, ]
+dat <- unique(dat) # Remove all the duplicates
+
+# It's not perfect, but it'll work for the plot
+tw <- glmmTMB(formula = windthrow_prct ~ dist_to_edge,
+               data = dat,
+               family = tweedie)
+#tw_preds <- predict(tw, dat, type = "response")
+ilink <- family(tw)$linkinv   # this is the inverse of the link function, as an R function
+pdata <- cbind(dat[,c("windthrow_prct", "dist_to_edge")],
+               as.data.frame(predict(tw, newdata = dat, type = "link", se.fit = TRUE)))
+## Compute 95% confidence interval on link scale & back transform this & model fit to response scale
+pdata <- transform(pdata,
+                   upper  = ilink(fit + (1.96 * se.fit)),
+                   lower  = ilink(fit - (1.96 * se.fit)),
+                   fitted = ilink(fit))
+
+
+pdata |>
+  dplyr::mutate(dist_to_edge = exp(dist_to_edge) - 1) |>
+  ggplot(aes(x = dist_to_edge)) +
+  geom_point(aes(y = windthrow_prct),
+             color = "black",
+             alpha = 0.5,
+             shape = 4) + 
+  geom_ribbon(aes(ymin = lower,
+                  ymax = upper),
+              alpha = 0.2) +
+  geom_line(aes(y = fitted), color = "red") +
+  coord_cartesian(xlim = c(0, 1000)) +
+  scale_y_continuous(limits = c(0, 100)) +
+  labs(title = "Distance to Edge vs Windthrow (%)",
+       x = "Distance to Edge",
+       y = "Windthrow (%)") +
+  theme_minimal()
+```
+
+---
+
+```{r}
+summary(tw)
+```
+
+---
+
+While there is a relationship between windthrow % and distance to edge, there appears to be no relationship between forest stand age class and windthrow (there were no significant differences between finer groupings of age class, either). 
+
+```{r}
+f |>
+  dplyr::filter(!is.na(age_class)) |>
+  dplyr::mutate(age_class = ifelse(age_class == "9: >250",
+                                   ">9 (Old growth)",
+                                   "<9 (all other stages)")) |>
+  ggplot(aes(x = age_class,
+             y = windthrow_prct)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) +
+  geom_signif(comparisons = list(c(">9 (Old growth)", "<9 (all other stages)")),
+              map_signif_level = TRUE,
+              test = "wilcox.test") +
+  labs(x = "Age Class",
+       y = "Windthrow (%)") +
+  theme_minimal()
+```
+
+---
+
+There is a significant relationship between canopy closure and windthrow.
+
+```{r}
+ggplot(f,
+       aes(x = canopy_closure,
+           y = windthrow_prct)) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  scale_x_continuous(limits = c(0, 100)) +
+  labs(x = "Canopy closure (%)",
+       y = "Windthrow (%)") +
+  theme_minimal()
+```
+
+---
+
+There is a significant relationship between canopy closure and windthrow.
+
+```{r}
+summary(lm(windthrow_prct ~ canopy_closure, data = f))
+```
+
+---
+
+## Question 3B
+
+**Question:** How does windthrow severity influence den activity? 
+
+---
+
+## Question 3B
+
+**Question:** How does windthrow severity influence den activity? 
+
+**Prediction:** Dens within areas of higher windthrow severity are less likely to be active.
+
+---
+
+## Question 3B: Analyses TBD!
 
 ---
 class: center, middle, inverse
