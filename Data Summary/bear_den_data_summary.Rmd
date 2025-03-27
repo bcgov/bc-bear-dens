@@ -51,6 +51,7 @@ library(magrittr) # data manipulation
 library(ggplot2)  # plotting
 library(ggsignif) # plotting significance/t-test/wilcox test on boxplots
 library(khroma)   # plotting color schemes
+library(ggmosaic) # mosaic plot
 library(glmmTMB)  # modeling
 
 # Read in tokens
@@ -2879,6 +2880,7 @@ f$harvested_yn <- ifelse(f$harvested == "Harvested",
                          FALSE)
 
 # Categorize windthrow codes into severity categories
+# f df
 f <- f |>
   dplyr::mutate(windthrow_sev = dplyr::case_when(windthrow_code == "None" ~ "Insignificant",
                                                  windthrow_code == "At risk" ~ "At risk",
@@ -2890,6 +2892,23 @@ f <- f |>
                                                  TRUE ~ NA))
 
 f$windthrow_sev <- factor(f$windthrow_sev,
+                          levels = c("Insignificant",
+                                     "At risk",
+                                     "Moderate",
+                                     "Severe"))
+
+# f_analysis df
+f_analysis <- f_analysis |>
+  dplyr::mutate(windthrow_sev = dplyr::case_when(windthrow_code == "None" ~ "Insignificant",
+                                                 windthrow_code == "At risk" ~ "At risk",
+                                                 windthrow_code == "Windthrow adjacent (>5%)" ~ "Moderate",
+                                                 windthrow_code %in% c("Windthrow adjacent - catastrophic (>25%)",
+                                                                       "Windthrow block access",
+                                                                       "Den tree top blown",
+                                                                       "Den tree blown over") ~ "Severe",
+                                                 TRUE ~ NA))
+
+f_analysis$windthrow_sev <- factor(f_analysis$windthrow_sev,
                           levels = c("Insignificant",
                                      "At risk",
                                      "Moderate",
@@ -3055,7 +3074,7 @@ summary(tw)
 While there is a relationship between windthrow % and distance to edge, there appears to be no relationship between forest stand age class and windthrow (there were no significant differences between finer groupings of age class, either). 
 
 ```{r}
-f |>
+f_full |>
   dplyr::filter(!is.na(age_class)) |>
   dplyr::mutate(age_class = ifelse(age_class == "9: >250",
                                    ">9 (Old growth)",
@@ -3077,7 +3096,7 @@ f |>
 There is a significant relationship between canopy closure and windthrow.
 
 ```{r}
-ggplot(f,
+ggplot(f_full,
        aes(x = canopy_closure,
            y = windthrow_prct)) +
   geom_point() +
@@ -3093,7 +3112,53 @@ ggplot(f,
 There is a significant relationship between canopy closure and windthrow.
 
 ```{r}
-summary(lm(windthrow_prct ~ canopy_closure, data = f))
+summary(lm(windthrow_prct ~ canopy_closure, data = f_full))
+```
+
+---
+
+```{r}
+chisq <- f |>
+  dplyr::select(den_id, windthrow_sev, harvested) |>
+  dplyr::filter(windthrow_sev != "At risk") |>
+  dplyr::distinct() |> # remove pseudo replicated yearly repeats
+  dplyr::select(-den_id) |>
+  na.omit() |>
+  dplyr::group_by(windthrow_sev, harvested) |>
+  dplyr::tally() |>
+  tidyr::pivot_wider(names_from = windthrow_sev,
+                     values_from = n) |>
+  tibble::column_to_rownames(var = "harvested") |>
+  dplyr::mutate_all(~replace(., is.na(.), 0)) |>
+  as.matrix() |>
+  chisq.test()
+```
+
+If there has been harvest activity within 60m of a location, windthrow severity goes up (X-squared *p*-value `r ifelse(chisq$p.value < 0.0001, "< 0.0001", paste0("= ", chisq$p.value))`).
+
+```{r}
+f |> 
+  dplyr::select(den_id, windthrow_sev, harvested) |>
+  dplyr::filter(windthrow_sev != "At risk") |>
+  dplyr::distinct() |> # remove pseudo replicated yearly repeats
+  dplyr::select(-den_id) |> 
+  droplevels() |>
+  na.omit() |>
+  ggplot() +
+  geom_mosaic(aes(x = product(harvested), 
+                  fill = windthrow_sev), 
+              alpha = 1) + 
+  scale_fill_manual(values = c("forestgreen", "gold", "orange")) +
+  labs(y = "Windthrow Severity", 
+       x = "Harvest Status") + 
+  theme_mosaic() +
+  theme(legend.position = "none", 
+        axis.title.x = element_text(size = 14, vjust = -0.2), 
+        axis.title.y = element_text(size = 14))
+```
+
+```{r}
+chisq$statistic
 ```
 
 ---
@@ -3112,7 +3177,31 @@ summary(lm(windthrow_prct ~ canopy_closure, data = f))
 
 ---
 
-## Question 3B: Analyses TBD!
+This question unfortunately is not so straightforward to answer. There does not seem to be a large difference in activity between still-functional den trees in severe vs. unaffected areas. In general, regardless of windthrow state, dens just aren't active very much.
+
+```{r}
+f_analysis |> 
+  sf::st_drop_geometry() |>
+  dplyr::select(den_id, windthrow_sev, den_status_binary) |>
+  dplyr::filter(windthrow_sev != "At risk") |>
+  dplyr::filter(den_status_binary != "Unknown") |>
+  dplyr::distinct() |> # remove pseudo replicated yearly repeats
+  dplyr::select(-den_id) |> 
+  droplevels() |>
+  na.omit() |>
+  ggplot() +
+  geom_mosaic(aes(x = product(windthrow_sev), 
+                  fill = den_status_binary), 
+              alpha = 1) + 
+  scale_fill_manual(values = c("forestgreen", "gold", "orange")) +
+  labs(y = "Den Activity Status",
+       x = "Windthrow Severity",
+       caption = "'Unknown' den activity statuses were removed for this plot.") +
+  theme_mosaic() +
+  theme(legend.position = "none", 
+        axis.title.x = element_text(size = 14, vjust = -0.2), 
+        axis.title.y = element_text(size = 14))
+```
 
 ---
 class: center, middle, inverse
