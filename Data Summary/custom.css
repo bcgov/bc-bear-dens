@@ -1,0 +1,13 @@
+/* make long codeblocks horizontally scrollable. doesn't seem to work tho */
+.remark-code {
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Add css class for small code chunk font */
+.tiny-code .remark-code{
+  font-size: 40%
+}
+.small-code .remark-code{
+  font-size: 60%
+}
