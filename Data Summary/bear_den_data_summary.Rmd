@@ -29,7 +29,10 @@ knitr::opts_chunk$set(warning = FALSE, # don't print code warnings in slides
                       fig.align='center', # center align any figures
                       dev = "svg", # make any plots "svg" format (rather than PNG or JPEG for example)
                       dev.args = list(bg = "transparent") # make the background of all plots transparent
-                      ) 
+                      )
+
+# Analysis options
+den_status_strict <- FALSE # should the first record of "Active recently (0-4 seasons)" be counted as "Active"? TRUE or FALSE
 
 # Load packages
 library(targets)  # load up data targets
@@ -200,15 +203,17 @@ f_analysis <- f_analysis |> dplyr::mutate(den_status_binary = dplyr::case_when(g
                                                      den_status == "Unknown" ~ "Unknown",
                                                      TRUE ~ "Unknown"))
 
-# If "Active recently (0-4 seasons)" is the very first data point, 
-# change it to "Active". 
-f_analysis <- f_analysis |>
-  dplyr::arrange(den_id, date_inspected_den) |>
-  dplyr::group_by(den_id) |>
-  dplyr::mutate(cumulative_visit = cumsum(!is.na(den_id))) |>
-  dplyr::mutate(den_status_binary = ifelse(cumulative_visit == 1 & den_status == "Active recently (0-4 seasons)",
-                                           "Active",
-                                           den_status_binary))
+if (den_status_strict == FALSE) {
+  # If "Active recently (0-4 seasons)" is the very first data point, 
+  # change it to "Active". 
+  f_analysis <- f_analysis |>
+    dplyr::arrange(den_id, date_inspected_den) |>
+    dplyr::group_by(den_id) |>
+    dplyr::mutate(cumulative_visit = cumsum(!is.na(den_id))) |>
+    dplyr::mutate(den_status_binary = ifelse(cumulative_visit == 1 & den_status == "Active recently (0-4 seasons)",
+                                             "Active",
+                                             den_status_binary)) 
+}
 
 # Add a column indicating N active and whether or not the den was 
 # ever active
@@ -638,20 +643,37 @@ class: center
 
 Dens with the highlighted status were considered "confirmed active" within the last season.
 
-.footnote[\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]
+```{r, echo = FALSE, results = 'asis'}
+if (den_status_strict == FALSE) {
+  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]')
+}
+```
 
 ```{r highlight active tbl, echo=FALSE}
-f |>
-  dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
-                                    "Active recently (0-4 seasons)*",
-                                    den_status)) |>
-  dplyr::pull(den_status) |>
-  table() |>
-  knitr::kable(col.names = c("Den Status", "N")) |> 
-  kableExtra::kable_styling() |> 
-  kableExtra::row_spec(c(1, 3), bold = TRUE, background = "#b58900") |>
-  kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
-  kableExtra::kable_styling(font_size = 14)
+if (den_status_strict) {
+  f |>
+    dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                      "Active recently (0-4 seasons)",
+                                      den_status)) |>
+    dplyr::pull(den_status) |>
+    table() |>
+    knitr::kable(col.names = c("Den Status", "N")) |> 
+    kableExtra::kable_styling() |> 
+    kableExtra::row_spec(c(1, 3), bold = TRUE, background = "#b58900") |>
+    kableExtra::kable_styling(font_size = 14)
+} else {
+  f |>
+    dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                      "Active recently (0-4 seasons)*",
+                                      den_status)) |>
+    dplyr::pull(den_status) |>
+    table() |>
+    knitr::kable(col.names = c("Den Status", "N")) |> 
+    kableExtra::kable_styling() |> 
+    kableExtra::row_spec(c(1, 3), bold = TRUE, background = "#b58900") |>
+    kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
+    kableExtra::kable_styling(font_size = 14)
+}
 ```
 
 ---
@@ -661,10 +683,27 @@ class: center
 
 Dens with the highlighted status were considered "confirmed *not* active" within the last season.
 
-.footnote[\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]
+```{r, echo = FALSE, results = 'asis'}
+if (den_status_strict == FALSE) {
+  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]')
+}
+```
 
 ```{r highlight non-active tbl, echo=FALSE}
-f |>
+if (den_status_strict) {
+  f |>
+    dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                      "Active recently (0-4 seasons)",
+                                      den_status)) |>
+    dplyr::pull(den_status) |>
+    table() |>
+    knitr::kable(col.names = c("Den Status", "N")) |> 
+    kableExtra::kable_styling() |> 
+    #kableExtra::row_spec(c(1:4), bold = FALSE, background = "#b58900") |>
+    kableExtra::row_spec(c(4:7), bold = TRUE, background = "#93a1a1") |>
+    kableExtra::kable_styling(font_size = 14)
+} else {
+ f |>
   dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
                                     "Active recently (0-4 seasons)*",
                                     den_status)) |>
@@ -674,7 +713,8 @@ f |>
   kableExtra::kable_styling() |> 
   #kableExtra::row_spec(c(1:4), bold = FALSE, background = "#b58900") |>
   kableExtra::row_spec(c(4:7), bold = TRUE, background = "#93a1a1") |>
-  kableExtra::kable_styling(font_size = 14)
+  kableExtra::kable_styling(font_size = 14) 
+}
 ```
 
 ---
@@ -685,10 +725,29 @@ class: center
 Dens with the highlighted status were excluded from den status assessments.
 
 
-.footnote[\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]
+```{r, echo = FALSE, results = 'asis'}
+if (den_status_strict == FALSE) {
+  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]')
+}
+```
 
 ```{r highlight unknown obsolete tbl, echo=FALSE}
-f |>
+if (den_status_strict) {
+  f |>
+    dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                      "Active recently (0-4 seasons)",
+                                      den_status)) |>
+    dplyr::pull(den_status) |>
+    table() |>
+    knitr::kable(col.names = c("Den Status", "N")) |> 
+    kableExtra::kable_styling() |> 
+    #kableExtra::row_spec(c(1:4), bold = FALSE, background = "#b58900") |>
+    #kableExtra::row_spec(c(5:14), bold = FALSE, background = "#93a1a1") |>
+    #kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
+    kableExtra::row_spec(c(2, 8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
+    kableExtra::kable_styling(font_size = 14) 
+} else {
+ f |>
   dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
                                     "Active recently (0-4 seasons)*",
                                     den_status)) |>
@@ -700,7 +759,8 @@ f |>
   #kableExtra::row_spec(c(5:14), bold = FALSE, background = "#93a1a1") |>
   kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
   kableExtra::row_spec(c(8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
-  kableExtra::kable_styling(font_size = 14)
+  kableExtra::kable_styling(font_size = 14) 
+}
 ```
 
 ---
@@ -710,10 +770,28 @@ class: center
 
 Dens with the highlighted status were excluded from den status assessments.
 
-.footnote[\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]
+```{r, echo = FALSE, results = 'asis'}
+if (den_status_strict == FALSE) {
+  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]')
+}
+```
 
 ```{r highlight all statuses tbl, echo=FALSE}
-f |>
+if (den_status_strict) {
+  f |>
+    dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
+                                      "Active recently (0-4 seasons)",
+                                      den_status)) |>
+    dplyr::pull(den_status) |>
+    table() |>
+    knitr::kable(col.names = c("Den Status", "N")) |> 
+    kableExtra::kable_styling() |> 
+    kableExtra::row_spec(c(1, 3), bold = FALSE, background = "#b58900") |>
+    kableExtra::row_spec(c(4:7), bold = FALSE, background = "#93a1a1") |>
+    kableExtra::row_spec(c(2, 8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
+    kableExtra::kable_styling(font_size = 14)
+} else {
+ f |>
   dplyr::mutate(den_status = ifelse(den_status == "Active recently (0-4 seasons)",
                                     "Active recently (0-4 seasons)*",
                                     den_status)) |>
@@ -725,7 +803,8 @@ f |>
   kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
   kableExtra::row_spec(c(4:7), bold = FALSE, background = "#93a1a1") |>
   kableExtra::row_spec(c(8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
-  kableExtra::kable_styling(font_size = 14)
+  kableExtra::kable_styling(font_size = 14) 
+}
 ```
 ---
 
@@ -1529,10 +1608,22 @@ pseudo_dens$den_status <- factor(x = pseudo_dens$den_status,
 
 # Bin into binary categories
 pseudo_dens <- pseudo_dens |> 
-  dplyr::mutate(den_status_binary = dplyr::case_when(grepl("^No", den_status) ~ "Not active",
+    dplyr::mutate(den_status_binary = dplyr::case_when(grepl("^No", den_status) ~ "Not active",
                                                      den_status == "Obsolete" ~ "Obsolete",
                                                      den_status == "Unknown" ~ "Unknown",
                                                      TRUE ~ "Active"))
+
+if (den_status_strict == FALSE) {
+  # If "Active recently (0-4 seasons)" is the very first data point, 
+  # change it to "Active". 
+  pseudo_dens <- pseudo_dens |>
+    dplyr::arrange(den_id, date_inspected_den) |>
+    dplyr::group_by(den_id) |>
+    dplyr::mutate(cumulative_visit = cumsum(!is.na(den_id))) |>
+    dplyr::mutate(den_status_binary = ifelse(cumulative_visit == 1 & den_status == "Active recently (0-4 seasons)",
+                                             "Active",
+                                             den_status_binary)) 
+}
 
 # Pull our parks shapefiles
 parks1 <- withr::with_dir(rprojroot::find_root('_targets.R'),

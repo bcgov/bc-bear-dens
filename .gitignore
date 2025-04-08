@@ -63,4 +63,5 @@ Data\ Summary/rsconnect*
 Data\ Summary/xaringan-themer.css
 !Data\ Summary/*.R
 !Data\ Summary/*.Rmd
+*.html
 
