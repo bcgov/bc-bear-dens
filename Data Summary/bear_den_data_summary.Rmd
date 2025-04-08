@@ -3441,16 +3441,23 @@ How many dens fall within best practice guidelines?
 
 ```{r n dens 75m from road}
 n_dens <- length(unique(f$den_id))
-  
+
 f |>
   dplyr::select(den_id, f_dist_road) |>
   dplyr::filter(!is.na(f_dist_road)) |>
   dplyr::distinct() |>
   dplyr::mutate(over_75 = f_dist_road > 75) |>
-  #dplyr::group_by(over_75) |>
-  #dplyr::summarize(n_over_75 = dplyr::n()) |>
+  dplyr::group_by(over_75) |>
+  dplyr::mutate(n_over_75 = dplyr::n()) |>
+  dplyr::ungroup() |> 
+  dplyr::mutate(nrows = max(dplyr::row_number())) |>
   ggplot(aes(x = over_75)) +
   geom_bar() +
+  geom_text(aes(label = scales::percent(round(n_over_75 / nrows, 2))),
+            stat = 'count',
+              position = position_dodge(.9), 
+              vjust = -0.5, 
+              size = 3) + 
   labs(title = "N dens >75m from a road",
           x = "Is the den >75m from a road?",
           y = "N dens",
@@ -3469,11 +3476,18 @@ f |>
   dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
   dplyr::distinct() |>
   dplyr::mutate(over_75 = f_dist_road > 75) |>
-  #dplyr::group_by(over_75) |>
-  #dplyr::summarize(n_over_75 = dplyr::n()) |>
+  dplyr::group_by(over_75, den_status_binary) |>
+  dplyr::mutate(n_over_75 = dplyr::n()) |>
+  dplyr::ungroup() |> 
+  dplyr::mutate(nrows = max(dplyr::row_number())) |>
   ggplot(aes(x = over_75,
              fill = den_status_binary)) +
   geom_bar() +
+  geom_text(aes(label = scales::percent(round(n_over_75 / nrows, 2))),
+            stat = 'count',
+              position = position_dodge(.9), 
+              vjust = -0.5, 
+              size = 3) + 
   scale_fill_bright(name = "Den status") +
   labs(title = "N dens >75m from a road",
        x = "Is the den >75m from a road?",
@@ -3493,8 +3507,17 @@ f |>
   dplyr::filter(!is.na(f_dist_lt40)) |>
   dplyr::distinct() |>
   dplyr::mutate(over_30 = f_dist_lt40 > 30) |>
+  dplyr::group_by(over_30) |>
+  dplyr::mutate(n_over_30 = dplyr::n()) |>
+  dplyr::ungroup() |> 
+  dplyr::mutate(nrows = max(dplyr::row_number())) |>
   ggplot(aes(x = over_30)) +
   geom_bar() +
+  geom_text(aes(label = scales::percent(round(n_over_30 / nrows, 2))),
+            stat = 'count',
+            position = position_dodge(.9), 
+            vjust = -0.5, 
+            size = 3) + 
   labs(title = "N dens >30m from a cutblock",
        x = "Is the den >30m from a cutblock (forest <40 years old)?",
        y = "N dens",
@@ -3513,9 +3536,18 @@ f |>
   dplyr::filter(!is.na(f_dist_lt40)) |>
   dplyr::distinct() |>
   dplyr::mutate(over_30 = f_dist_lt40 > 30) |>
+  dplyr::group_by(over_30, den_status_binary) |>
+  dplyr::mutate(n_over_30 = dplyr::n()) |>
+  dplyr::ungroup() |> 
+  dplyr::mutate(nrows = max(dplyr::row_number())) |>
   ggplot(aes(x = over_30,
              fill = den_status_binary)) +
   geom_bar() +
+  geom_text(aes(label = scales::percent(round(n_over_30 / nrows, 2))),
+            stat = 'count',
+            position = position_dodge(.9), 
+            vjust = -0.5, 
+            size = 3) + 
   scale_fill_bright(name = "Den status") +
   facet_wrap(~ den_status_binary) +
   labs(title = "N dens >30m from a cutblock",
@@ -3535,8 +3567,17 @@ f |>
   dplyr::filter(!is.na(f_prop_forest_60m)) |>
   dplyr::distinct() |>
   dplyr::mutate(allforest = f_prop_forest_60m == 100) |>
+  dplyr::group_by(allforest) |>
+  dplyr::mutate(n_allforest = dplyr::n()) |>
+  dplyr::ungroup() |> 
+  dplyr::mutate(nrows = max(dplyr::row_number())) |>
   ggplot(aes(x = allforest)) +
   geom_bar() +
+  geom_text(aes(label = scales::percent(round(n_allforest / nrows, 2))),
+            stat = 'count',
+            position = position_dodge(.9), 
+            vjust = -0.5, 
+            size = 3) + 
   labs(title = "N dens 100% forested within 60m",
        x = "Is the den 100% forested in a 60m radius?",
        y = "N dens",
@@ -3555,9 +3596,18 @@ f |>
   dplyr::filter(!is.na(f_prop_forest_60m)) |>
   dplyr::distinct() |>
   dplyr::mutate(allforest = f_prop_forest_60m == 100) |>
+  dplyr::group_by(allforest, den_status_binary) |>
+  dplyr::mutate(n_allforest = dplyr::n()) |>
+  dplyr::ungroup() |> 
+  dplyr::mutate(nrows = max(dplyr::row_number())) |>
   ggplot(aes(x = allforest,
              fill = den_status_binary)) +
   geom_bar() +
+  geom_text(aes(label = scales::percent(round(n_allforest / nrows, 2))),
+            stat = 'count',
+            position = position_dodge(.9), 
+            vjust = -0.5, 
+            size = 3) + 
   scale_fill_bright(name = "Den status") +
   facet_wrap(~ den_status_binary) +
   labs(title = "N dens 100% forested within 60m",
@@ -3578,8 +3628,18 @@ f |>
   dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
   dplyr::filter(!is.na(forestry_treatment_desc)) |>
   dplyr::distinct() |>
+  dplyr::group_by(forestry_treatment_desc) |>
+  dplyr::mutate(n_ftd = dplyr::n()) |>
+  dplyr::ungroup() |> 
+  dplyr::mutate(nrows = max(dplyr::row_number())) |>
   ggplot(aes(x = forestry_treatment_desc)) +
   geom_bar() +
+  geom_text(aes(label = scales::percent(round(n_ftd / nrows, 2))),
+            stat = 'count',
+            position = position_dodge(.9), 
+            vjust = 0.5, 
+            hjust = -0.2,
+            size = 3) + 
   scale_fill_bright(name = "Den status") +
   labs(title = "N dens by patch size",
        x = "Patch status",
@@ -3600,9 +3660,20 @@ f |>
   dplyr::filter(den_status_binary %in% c("Active", "Not Active")) |>
   dplyr::filter(!is.na(forestry_treatment_desc)) |>
   dplyr::distinct() |>
+  dplyr::group_by(forestry_treatment_desc, den_status_binary) |>
+  dplyr::mutate(n_ftd = dplyr::n()) |>
+  dplyr::ungroup() |> 
+  dplyr::mutate(nrows = max(dplyr::row_number())) |>
   ggplot(aes(x = forestry_treatment_desc,
              fill = factor(den_status_binary))) +
   geom_bar(position = "dodge") +
+  geom_text(aes(label = scales::percent(n_ftd / nrows,
+                                        accuracy = 0.1)),
+            stat = 'count',
+            position = position_dodge(.9), 
+            vjust = 0.5, 
+            hjust = -0.2,
+            size = 3) + 
   scale_fill_bright(name = "Den status") +
   labs(title = "N dens by patch size",
        x = "Patch status",
@@ -3610,6 +3681,7 @@ f |>
        caption = paste(n_dens, "dens total with enough information to determine patch size")) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90)) +
+  scale_y_continuous(limits = c(0, 60)) +
   coord_flip()
 ```
 
