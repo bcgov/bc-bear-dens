@@ -2282,6 +2282,7 @@ By far and away, our base model `model00` is consistently one of the top models,
 dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active") & f_analysis$den_status %in% for_sure_dens, ]
 dat <- dat[, c("den_status_binary", "den_id", "year", "age", 
                "region", ##"latitude", "longitude",
+               "elevation_m",
                "f_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road",
                "log_dist_from_edge", "lt_3", "gt_8", "road_density_m2",
                "forestry_treatment_desc")]
@@ -3149,7 +3150,7 @@ ggplot(f[which(f$dist_to_edge < 6000), ],
   geom_point() + 
   labs(title = "Distance to Edge vs Windthrow (%)",
        x = "Distance to Edge",
-       y = "Windthrow (%)") +
+       y = "Windthrow within 60m radius (%)") +
   theme_minimal()
 ```
 
@@ -3192,7 +3193,7 @@ pdata |>
   scale_y_continuous(limits = c(0, 100)) +
   labs(title = "Distance to Edge vs Windthrow (%)",
        x = "Distance to Edge",
-       y = "Windthrow (%)") +
+       y = "Windthrow within 60m radius (%)") +
   theme_minimal()
 ```
 
