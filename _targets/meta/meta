@@ -2,7 +2,7 @@ name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iterat
 <<<<<<< HEAD|||||||||||||||||
 =======|||||||||||||||||
 >>>>>>> main|||||||||||||||||
-backup|stem|831ff38c1f10dd4c|95e5224d07d99231|488e8cad6a127b71|1435861339||t20166.8778199893s|ffefd19c497c0fa6|27357|qs|local|vector|||0.16||
+backup|stem|831ff38c1f10dd4c|95e5224d07d99231|5a6b7851c27af7fa|1435861339||t20185.9367062842s|ffefd19c497c0fa6|27357|qs|local|vector|||0.3||
 backup_bears|function|fed6cfd7672513bb|||||||||||||||
 bcgw_keys|stem|3b56b8ffa0e62a6f|2ddb64e7358eb048|b823beb694419599|-519101963||t20130.0081240577s|28e76c0917097715|38|qs|local|vector|||3.39||
 bcgw_set_keys|function|4ef4a1f2aea863a9|||||||||||||||
@@ -12,22 +12,22 @@ connect_bcgw|function|39f9a06252d7f403|||||||||||||||
 create_fvl|function|50fd225eb018e6a5|||||||||||||||
 den_fix_priority|stem|e75fade0e4f0cf06|7d6f23d97a297478|8841881a4ce23125|1032555658||t20166.8779107498s|0191857fbb6069ce|1203|qs|local|vector|||0.01||
 den_years|stem|744dad2a0685a8f0|3fc24f5ebdc4bb81|ae4d9914b9cdd4d9|559029640||t20075.7410422794s|530f140998b50d1c|112|qs|local|vector|||0||
-dens|stem|5b82a3e5acfff44b|cd17d2b24d452c25|c3c59d4992dfb580|-500175898||t20139.0609629408s|8e65287d41dd5156|40750|qs|local|vector|||0.4||
-dens_age_class|stem|8e9fefa6a18702ce|384416fbb1c49940|4e650f43b0a53fb6|-222500373||t20166.8779001364s|d34e80d524d489f3|7498|qs|local|vector|||3.45|attribute variables are assumed to be spatially constant throughout all geometries|
-dens_dem|stem|90de905f700188ad|3397954f8f64dea8|52b9415fbd7300f5|1614099065||t20139.2710109928s|3cabaa4efc8e77a3|2519|qs|local|vector|||253.18||
-dens_raw|stem|db64a2fdcadf7295|65b3b7b2495f30e4|c5ac37f6c4a01f3e|-1423372772||t20166.8777872455s|42b68a6c93cc382b|40977|qs|local|vector|||3.01||
+dens|stem|1a6228e0e24b303f|cd17d2b24d452c25|be34b3cb7e27ac2f|-500175898||t20185.936681446s|50b83ae832f2be34|40749|qs|local|vector|||0.74||
+dens_age_class|stem|8e9fefa6a18702ce|384416fbb1c49940|d07d1882a5cbb009|-222500373||t20185.941532172s|d34e80d524d489f3|7498|qs|local|vector|||6.2|attribute variables are assumed to be spatially constant throughout all geometries|
+dens_dem|stem|90de905f700188ad|3397954f8f64dea8|aa38f367c2f4e297|1614099065||t20185.941383174s|3cabaa4efc8e77a3|2519|qs|local|vector|||403.86||
+dens_raw|stem|a8400221d75945db|65b3b7b2495f30e4|5e3a8574b783682b|-1423372772||t20185.9366502999s|f64ead8c8c5ab673|40978|qs|local|vector|||3.98||
 deps|stem|1994b0974a1e3f21|7bcb0a27f4662cef|d6595bf119b686cf|1095278719||t20075.8596603724s|c8258776c4411bdb|62464475|qs|local|vector|||8.81|attribute variables are assumed to be spatially constant throughout all geometries|
 extract_aspect|function|f9c8a6b53debc534|||||||||||||||
 extract_dem|function|74f91f55d7e33990|||||||||||||||
 extract_elevation|function|30a21e8bc38ab458|||||||||||||||
 extract_slope|function|f02dac9cf228900f|||||||||||||||
-f|stem|a0e4774ae4121db3|6303500104d024fc|c421afd6d03b633b|-20664708||t20166.8778169862s|c61831a696dc7e5d|157256|qs|local|vector|||0.95||
-f_analysis|stem|746a5a946e3b50e9|5797f156f1db2903|7c4871a5581d55f6|1061248497||t20166.8778231838s|28b2352c8dec436d|13885|qs|local|vector|||0.01||
-f_full|stem|238c2fa9557ad313|c0d03fbd004bd6d6|66f12f93a82ea6f0|677235733||t20166.8778217486s|febacd0f2bb68dec|208822|qs|local|vector|||0.04||
-f_geom|stem|eb41bcb6232fff96|d5014cce5260e730|4de8309ce20a3b51|1031424069||t20166.8778279292s|457508ade7fd3e30|10351|qs|local|vector|||0||
-f_raw|stem|e5c442e25d7caef6|a6669e4bbb2bedf9|c5ac37f6c4a01f3e|1087686815||t20166.8777976979s|4a66abe7f854a2f8|159067|qs|local|vector|||0.8||
+f|stem|c78986e2733c3bb3|6303500104d024fc|fbf04d92856e4014|-20664708||t20185.9367001732s|f6b6682d9d489206|157994|qs|local|vector|||1.44||
+f_analysis|stem|ffa204e3f3ead4a0|5797f156f1db2903|7d748811d044a738|1061248497||t20185.9413891342s|3400b91665fe255b|13875|qs|local|vector|||0.03||
+f_full|stem|2f834ce18ad43c77|c0d03fbd004bd6d6|74a4b4e44fbc6659|677235733||t20185.9413862289s|01b0fc9092fe4475|209480|qs|local|vector|||0.05||
+f_geom|stem|eb41bcb6232fff96|d5014cce5260e730|8b6e7c702cd4b86c|1031424069||t20185.9413982666s|457508ade7fd3e30|10351|qs|local|vector|||0.02||
+f_raw|stem|52e8d97d75c085fd|a6669e4bbb2bedf9|5e3a8574b783682b|1087686815||t20185.9366622322s|df75e9652786262f|159786|qs|local|vector|||0.86||
 fetch_bears|function|e9035e8d79fa87ee|||||||||||||||
-forest_qc|stem|da5b6d50583108e4|2f5b6244a30d1834|c7f1b7ad2f9ac8d7|1962084585||t20166.8779091062s|82109507c2698e6c|11352|qs|local|vector|||0.03||
+forest_qc|stem|da5b6d50583108e4|2f5b6244a30d1834|33462e1283ea9fb6|1962084585||t20185.9415463282s|82109507c2698e6c|11352|qs|local|vector|||0.03||
 forest_qc_summary|stem|5c86e7163bf283bb|dcdce0639054965e|65900fc8c4d4907f|1764024511||t20166.8779121503s|e435a6b9e7e6ea9f|179|qs|local|vector|||0||
 forestry_verification_2014|stem|039ca0b3675a0d8f|6e5a92e1074213ae|0715e6ce57231f58|1517320127||t20125.7077153939s|afd7f87dad3f6f11|195|qs|local|vector|||8||
 forestry_verification_2015|stem|5b0d75d3788c859a|7b6df9756f28c7ff|d55b1eb995dcaf10|-368769553||t20125.7078492086s|d4e1dc8172cd9f87|229|qs|local|vector|||10.11||
@@ -68,9 +68,9 @@ mapped|object|fdc96d2d8573b5fe|||||||||||||||
 merge_bcgw_lyrs|function|362e497bdd6cf26f|||||||||||||||
 merge_forestry_verifications|function|e741170c32407872|||||||||||||||
 merge_vri|function|280cd1baa5838467|||||||||||||||
-nonforest_qc|stem|0742a52af1762d42|97627feb921f77ee|33460d4036c93947|1324637653||t20166.8778262857s|313417ee2598abea|8105|qs|local|vector|||0.18||
+nonforest_qc|stem|0742a52af1762d42|97627feb921f77ee|c49bd78257161abe|1324637653||t20185.9413954077s|313417ee2598abea|8105|qs|local|vector|||0.35||
 p|stem|e8b3a094aef90ece|26a836c16ef68835|834b11009409e110|1169531534||t20109.0167009039s|231e0290b1a75912|27342|qs|local|vector|||0.3||
-p_raw|stem|831ff38c1f10dd4c|c95ab6ba9031d74a|c5ac37f6c4a01f3e|1110398273||t20166.8778043418s|ffefd19c497c0fa6|27357|qs|local|vector|||0.49||
+p_raw|stem|831ff38c1f10dd4c|c95ab6ba9031d74a|5e3a8574b783682b|1110398273||t20185.9366700223s|ffefd19c497c0fa6|27357|qs|local|vector|||0.54||
 prct_age_class_1.5km|stem|a75f5d03b635a370|232c4b57baae062b|174be4e650ce019b|1639803805||t20122.7540238944s|972fddd85013a9a4|15791|qs|local|vector|||0.02||
 prct_age_class_buffer|function|622762efa50fb5db|||||||||||||||
 prct_age_class_yearly_2014|stem|18c5cbf08b5c7450|3c10aa2e28184c63|ee4307d85566fa43|572458032||t20125.7073133627s|7c6c464dae2fa2af|271|qs|local|vector|||4.26||
@@ -166,7 +166,7 @@ summarize_verifications|function|d6d6ac44fc0c1ff3|||||||||||||||
 test_bcgw|function|dfaacc780e912095|||||||||||||||
 test_poly|stem|efb5bb480e0abc12|8e2e35e133a37665|897558516c7220d9|-824481042||t19992.9508636346s|49592db10e448623|604|qs|local|vector|||3.99||
 to_esri_json|function|1fc6d32feebba37a|||||||||||||||
-token|object|2733c13b800b7758|||||||||||||||
+token|object|a9c72392096fceed|||||||||||||||
 verify_bears|function|308f11e593e41011|||||||||||||||
 verify_forestry|function|b87106e3764ec0d0|||||||||||||||
 vi_vri|stem|f69ee81211f22d87|d87c531a3622ced3|b581e993cd2cd253|-575454236||t19993.0646251466s|b237eb8170bfa1f1|210231457|qs|local|vector|||4405.72||
