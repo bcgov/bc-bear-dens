@@ -181,20 +181,20 @@ f_analysis <- dplyr::rename(f_analysis,
               "windthrow_code" = "x_windthrow_code")
 
 # Take log of vars of interest
-f_analysis$log_dist_lt40 <- log(f_analysis$f_dist_lt40 + 1)
-f_analysis$log_dist_gt40 <- log(f_analysis$f_dist_gt40 + 1)
-f_analysis$log_dist_road <- log(f_analysis$f_dist_road + 1)
+f_analysis$log_dist_lt40 <- log(f_analysis$v_dist_lt40 + 1)
+f_analysis$log_dist_gt40 <- log(f_analysis$v_dist_gt40 + 1)
+f_analysis$log_dist_road <- log(f_analysis$v_dist_road + 1)
 
 # Next, make just one 'distance from edge' variable
-f_analysis$dist_from_edge <- ifelse(f_analysis$f_dist_lt40 > 0, f_analysis$f_dist_lt40, f_analysis$f_dist_gt40)
+f_analysis$dist_from_edge <- ifelse(f_analysis$v_dist_lt40 > 0, f_analysis$v_dist_lt40, f_analysis$v_dist_gt40)
 f_analysis$log_dist_from_edge <- log(f_analysis$dist_from_edge + 1)
 
 # Next, say if it's in old, new, or edge of forest.
-f_analysis <- f_analysis |> dplyr::mutate(f_dist_lt40 = round(f_dist_lt40, 0),
-                              f_dist_gt40 = round(f_dist_gt40, 0),
-                              age = dplyr::case_when((f_dist_lt40 == f_dist_gt40) ~ "on_edge",
-                                               (f_dist_lt40 > f_dist_gt40) ~ "within_old",
-                                               (f_dist_lt40 < f_dist_gt40) ~ "within_young"))
+f_analysis <- f_analysis |> dplyr::mutate(v_dist_lt40 = round(v_dist_lt40, 0),
+                              v_dist_gt40 = round(v_dist_gt40, 0),
+                              age = dplyr::case_when((v_dist_lt40 == v_dist_gt40) ~ "on_edge",
+                                               (v_dist_lt40 > v_dist_gt40) ~ "within_old",
+                                               (v_dist_lt40 < v_dist_gt40) ~ "within_young"))
 
 # Add a `den_status_binary` column
 f_analysis <- f_analysis |> dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
@@ -225,6 +225,11 @@ f_analysis <- f_analysis |>
 # Merge spatial/static den data with analysis subset of field visits
 f_analysis <- merge(dens, f_analysis, by = "den_id")
 
+# Remove dupes in prop_1km
+# Drop a few dupe records - they're from 3 dens that were visited twice
+# within one year, so they each got an extra row in `prop_1km`
+prop_1km <- dplyr::select(prop_1km, -sample_id) # we'll use den_id + year to merge
+prop_1km <- unique(prop_1km)
 # Bin proportion forested data into groups (sort of ~young, old, medium, very old)
 prop_1km$lt_3 <- rowSums(prop_1km[,c("age_class_1", "age_class_2")])
 prop_1km$gt_3 <- rowSums(prop_1km[,6:12])
@@ -233,20 +238,18 @@ prop_1km$gt_8 <- rowSums(prop_1km[,c("age_class_8", "age_class_9")])
 
 # Merge landscape scale forestry metrics with the f_analysis dataset
 # Merge % age class to `f_analysis`
-f_analysis <- merge(f_analysis, prop_1km, by.x = "sample_id_forest", by.y = "sample_id")
-f_analysis <- dplyr::select(f_analysis, -den_id.y, -year.y)
-names(f_analysis)[grep("den_id.x", names(f_analysis))] <- "den_id"
-names(f_analysis)[grep("year.x", names(f_analysis))] <- "year"
+f_analysis <- merge(f_analysis, prop_1km, by = c("den_id", "year"), all.x = TRUE)
 
+# Remove dupes in road_density
+# Drop a few dupe records - they're from 3 dens that were visited twice
+# within one year, so they each got an extra row in `prop_1km`
+road_density <- dplyr::select(road_density, -sample_id) # we'll use den_id + year to merge
+road_density <- unique(road_density)
 # Note the all.x = TRUE. If the den isn't in
 # the road density df, the road density is 0.
 f_analysis <- merge(f_analysis, road_density, 
-                    by.x = "sample_id_forest", 
-                    by.y = "sample_id", 
-                    all.x = TRUE) # again, merging GIS forestry data for the year PRIOR to the den status year
-f_analysis <- dplyr::select(f_analysis, -den_id.y, -year.y)
-names(f_analysis)[grep("den_id.x", names(f_analysis))] <- "den_id"
-names(f_analysis)[grep("year.x", names(f_analysis))] <- "year"
+                    by = c("den_id", "year"), # again, merging GIS forestry data for the year PRIOR to the den status year
+                    all.x = TRUE) # all.x = TRUE is necessary if there's no roads (thus NULL road density)
 
 f_analysis$road_density_m2 <- ifelse(is.na(f_analysis$road_density_m2), 0, f_analysis$road_density_m2)
 
@@ -645,7 +648,7 @@ Dens with the highlighted status were considered "confirmed active" within the l
 
 ```{r, echo = FALSE, results = 'asis'}
 if (den_status_strict == FALSE) {
-  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]')
+  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* =', nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ]),').]')
 }
 ```
 
@@ -685,7 +688,7 @@ Dens with the highlighted status were considered "confirmed *not* active" within
 
 ```{r, echo = FALSE, results = 'asis'}
 if (den_status_strict == FALSE) {
-  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]')
+  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* =', nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ]),').]')
 }
 ```
 
@@ -727,7 +730,7 @@ Dens with the highlighted status were excluded from den status assessments.
 
 ```{r, echo = FALSE, results = 'asis'}
 if (den_status_strict == FALSE) {
-  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]')
+  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* =', nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ]),').]')
 }
 ```
 
@@ -772,7 +775,7 @@ Dens with the highlighted status were excluded from den status assessments.
 
 ```{r, echo = FALSE, results = 'asis'}
 if (den_status_strict == FALSE) {
-  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* = `r nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ])`).]')
+  cat('.footnote[\\* If the first datapoint in the timeseries was `Active recently (0-4 seasons)`, we counted it as `Active` (*N* =', nrow(f[f$den_status == "Active recently (0-4 seasons)" & f$den_status_binary == "Active", ]),').]')
 }
 ```
 
@@ -806,6 +809,7 @@ if (den_status_strict) {
   kableExtra::kable_styling(font_size = 14) 
 }
 ```
+
 ---
 
 # Rates of re-use
@@ -814,12 +818,12 @@ First need to categorize dens into `Active`, `Not Active`, or `Unknown`.
 Based on the highlighted rows in the tables of the previous slides, we have:
 
 ```{r den_status_binary tbl, echo = FALSE}
-# Add a `den_status_binary` column
-f <- f |> dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
-                                                     den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
-                                                     den_status == "Obsolete" ~ "Obsolete",
-                                                     den_status == "Unknown" ~ "Unknown",
-                                                     TRUE ~ "Unknown"))
+# # Add a `den_status_binary` column
+# f <- f |> dplyr::mutate(den_status_binary = dplyr::case_when(grepl("No", den_status) ~ "Not Active",
+#                                                      den_status %in% c("Active in last denning season", "Currently active") ~ "Active",
+#                                                      den_status == "Obsolete" ~ "Obsolete",
+#                                                      den_status == "Unknown" ~ "Unknown",
+#                                                      TRUE ~ "Unknown"))
 
 # Double check our categories
 unique(f[,c("den_status", "den_status_binary")]) |> 
@@ -1215,7 +1219,7 @@ prop_1km |>
   # Condense age class for each den visit into either ">= 3" or "< 3"
   dplyr::mutate(age_class = ifelse(grepl("1|2", age_class), "Less than 3", "Greater or equal to 3")) |>
   dplyr::mutate(age_class = factor(age_class, levels = c("Less than 3", "Greater or equal to 3"))) |> # Flip plotting order so it stays lined up with previous graph
-  dplyr::group_by(sample_id, year, age_class) |>
+  dplyr::group_by(den_id, year, age_class) |>
   dplyr::summarise(value = sum(value)) |>
   # Then summarize the mean % age class by year
   dplyr::group_by(year, age_class) |>
@@ -1243,7 +1247,7 @@ prop_1km |>
                                              age_class >= 8 ~ "Older than 7",
                                              TRUE ~ "3 to 7")) |>
   dplyr::mutate(age_class = factor(age_class, levels = c("Less than 3", "3 to 7", "Older than 7"))) |>
-  dplyr::group_by(sample_id, year, age_class) |>
+  dplyr::group_by(den_id, year, age_class) |>
   dplyr::summarise(value = sum(value)) |>
   # Then summarize the mean % age class by year
   dplyr::group_by(year, age_class) |>
@@ -1617,7 +1621,7 @@ if (den_status_strict == FALSE) {
   # If "Active recently (0-4 seasons)" is the very first data point, 
   # change it to "Active". 
   pseudo_dens <- pseudo_dens |>
-    dplyr::arrange(den_id, date_inspected_den) |>
+    dplyr::arrange(den_id, date_inspected) |>
     dplyr::group_by(den_id) |>
     dplyr::mutate(cumulative_visit = cumsum(!is.na(den_id))) |>
     dplyr::mutate(den_status_binary = ifelse(cumulative_visit == 1 & den_status == "Active recently (0-4 seasons)",
@@ -1675,7 +1679,7 @@ pfv <- withr::with_dir(rprojroot::find_root('_targets.R'),
                        tar_read(pseudo_forestry_verifications_full)) # pseudo data verification results
 
 # Merge verification data to the spatial data
-f_analysis <- merge(f_analysis, fv, by.x = "sample_id_forest", by.y = "sample_id") # again, merging GIS forestry data for the year PRIOR to the den status year
+f_analysis <- merge(f_analysis, fv, by.x = "sample_id_den", by.y = "sample_id")
 pseudo_dens <- merge(pseudo_dens, pfv, by = "sample_id")
 
 
@@ -2373,12 +2377,24 @@ By far and away, our base model `model00` is consistently one of the top models,
 dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active") & f_analysis$den_status %in% for_sure_dens, ]
 dat <- dat[, c("den_status_binary", "den_id", "year", "age", 
                "region", ##"latitude", "longitude",
-               "elevation_m",
-               "f_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road",
-               "log_dist_from_edge", "lt_3", "gt_8", "road_density_m2",
-               "forestry_treatment_desc")]
+               #"elevation_m", # some missing cases?
+               "dist_lt40", "dist_gt40", "dist_from_edge", "dist_road",
+               "v_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road",
+               "log_dist_from_edge", "lt_3", "gt_8", "road_density_m2"#,
+               #"forestry_treatment_desc" # many missing cases
+               )]
 dat <- sf::st_drop_geometry(dat)
+
+# Don't know why some of these are still NA
+dat$age <- ifelse(dat$dist_lt40 > 0, "within_old", "within_young")
+dat$dist_from_edge <- ifelse(dat$dist_lt40 == 0, dat$dist_gt40, dat$dist_lt40)
+dat$log_dist_lt40 <- log(dat$dist_lt40 + 1)
+dat$log_dist_gt40 <- log(dat$dist_gt40 + 1)
+dat$log_dist_from_edge <- log(dat$dist_from_edge + 1)
+
 dat <- dat[complete.cases(dat),]
+
+dat <- dat[dat$dist_road <= 2000, ]
 
 # Convert den_status_binary to 0 or 1
 dat$den_status_binary <- ifelse(dat$den_status_binary == "Active", 1, 0)
@@ -2395,29 +2411,29 @@ dat$age <- factor(dat$age, levels = c("within_young", "within_old"))
 # Just the basics - each forest metric - effectively same as examining boxplots for significance
 model00 <- glm(den_status_binary ~ year, data = dat, family = binomial)
 model0r <- glm(den_status_binary ~ region + year, data = dat, family = binomial)
-model0p <- glm(den_status_binary ~ forestry_treatment_desc + year, data = dat, family = binomial)
-model0a <- glm(den_status_binary ~ f_prop_forest_60m + age + year, data = dat, family = binomial)
-model0b <- glm(den_status_binary ~ log_dist_lt40 + age + year, data = dat, family = binomial)
-model0c <- glm(den_status_binary ~ log_dist_gt40 + age + year, data = dat, family = binomial)
+#model0p <- glm(den_status_binary ~ forestry_treatment_desc + year, data = dat, family = binomial)
+model0a <- glm(den_status_binary ~ v_prop_forest_60m + age + year, data = dat, family = binomial)
+model0b <- glm(den_status_binary ~ dist_lt40 + year, data = dat, family = binomial) # can't have age in this!!!
+model0c <- glm(den_status_binary ~ dist_gt40 + year, data = dat, family = binomial) # can't have age in this!!
 model0d <- glm(den_status_binary ~ age + year, data = dat, family = binomial)
-model0e <- glm(den_status_binary ~ log_dist_from_edge + age + year, data = dat, family = binomial)
-model0f1 <- glm(den_status_binary ~ log_dist_from_edge * age + year, data = dat, family = binomial)
-model0f2 <- glm(den_status_binary ~ log_dist_from_edge * age * year, data = dat, family = binomial)
-model0f3 <- glm(den_status_binary ~ log_dist_from_edge * forestry_treatment_desc + year, data = dat, family = binomial)
-model0g1 <- glm(den_status_binary ~ log_dist_road + age + year, data = dat, family = binomial)
-model0g2 <- glm(den_status_binary ~ log_dist_road * age + year, data = dat, family = binomial)
-model0g3 <- glm(den_status_binary ~ log_dist_road * age * year, data = dat, family = binomial)
-model0h <- glm(den_status_binary ~ log_dist_road * forestry_treatment_desc + year, data = dat, family = binomial)
+model0e <- glm(den_status_binary ~ dist_from_edge + age + year, data = dat, family = binomial)
+model0f1 <- glm(den_status_binary ~ dist_from_edge * age + year, data = dat, family = binomial)
+model0f2 <- glm(den_status_binary ~ dist_from_edge * age * year, data = dat, family = binomial)
+#model0f3 <- glm(den_status_binary ~ dist_from_edge * forestry_treatment_desc + year, data = dat, family = binomial)
+model0g1 <- glm(den_status_binary ~ dist_road + age + year, data = dat, family = binomial)
+model0g2 <- glm(den_status_binary ~ dist_road * age + year, data = dat, family = binomial)
+model0g3 <- glm(den_status_binary ~ dist_road * age * year, data = dat, family = binomial)
+#model0h <- glm(den_status_binary ~ dist_road * forestry_treatment_desc + year, data = dat, family = binomial)
 model0i <- glm(den_status_binary ~ gt_8 + age + year, data = dat, family = binomial)
 model0j <- glm(den_status_binary ~ lt_3 + age + year, data = dat, family = binomial)
 model0k <- glm(den_status_binary ~ road_density_m2 + age + year, data = dat, family = binomial)
-model0l <- glm(den_status_binary ~ gt_8 + log_dist_lt40 + age + year, data = dat, family = binomial)
-model0m <- glm(den_status_binary ~ gt_8 + f_prop_forest_60m + age + year, data = dat, family = binomial)
-model0n <- glm(den_status_binary ~ road_density_m2 + log_dist_road + age + year, data = dat, family = binomial)
-model0o <- glm(den_status_binary ~ log_dist_lt40 * region + age + year, data = dat, family = binomial)
+model0l <- glm(den_status_binary ~ gt_8 + dist_lt40 + age + year, data = dat, family = binomial)
+model0m <- glm(den_status_binary ~ gt_8 + v_prop_forest_60m + age + year, data = dat, family = binomial)
+model0n <- glm(den_status_binary ~ road_density_m2 + dist_road + age + year, data = dat, family = binomial)
+model0o <- glm(den_status_binary ~ dist_lt40 * region + age + year, data = dat, family = binomial)
 
-model1a <- glm(den_status_binary ~ year + region + f_prop_forest_60m + log_dist_from_edge * age + road_density_m2, data = dat, family = binomial)
-model1b <- glm(den_status_binary ~ year + region + f_prop_forest_60m + log_dist_road * age, data = dat, family = binomial)
+model1a <- glm(den_status_binary ~ year + region + v_prop_forest_60m + dist_from_edge * age + road_density_m2, data = dat, family = binomial)
+model1b <- glm(den_status_binary ~ year + region + v_prop_forest_60m + dist_road * age, data = dat, family = binomial)
 
 models_names <- ls()[grep("model0|model1", ls())]
 models_list <- lapply(models_names, get)
@@ -2796,6 +2812,27 @@ f |>
   labs(x = "Has the den ever been active?",
        y = "Measurement (cm)") +
   facet_wrap(~ Measurement, labeller = as_labeller(label_names))
+```
+
+---
+
+### Chamber dimensions vs Den Status
+
+`TRUE` = the den has been active at least one time during the monitoring period.
+`FALSE` = the den has never been active during the monitoring period.
+
+```{r den status v func entrance width, dev.args=list(bg="transparent")}
+f_full |>
+    group_by(ever_active_yn, entrance_width_functional) |>
+    ggplot(aes(x = ever_active_yn, y = entrance_width_functional, color = ever_active_yn)) +
+    geom_jitter() +
+    geom_boxplot(fill = NA) +
+    geom_signif(comparisons = list(c("TRUE", "FALSE")),
+                map_signif_level = TRUE) +
+    scale_color_bright() +
+    labs(x = "Has the den ever been active?",
+         y = "Functional entrance width (cm)") +
+    theme_minimal()
 ```
 
 ---
@@ -3250,17 +3287,17 @@ ggplot(f[which(f$dist_to_edge < 6000), ],
 ```{r prct windthrow v dist to edge w trendline}
 dat <- f[,c("windthrow_prct", "dist_to_edge")]
 dat <- na.omit(dat)
-dat$dist_to_edge <- log(dat$dist_to_edge + 1)
+dat$log_dist_to_edge <- log(dat$dist_to_edge + 1)
 dat <- dat[dat$dist_to_edge < 6000, ]
 dat <- unique(dat) # Remove all the duplicates
 
 # It's not perfect, but it'll work for the plot
-tw <- glmmTMB(formula = windthrow_prct ~ dist_to_edge,
+tw <- glmmTMB(formula = windthrow_prct ~ log_dist_to_edge,
                data = dat,
                family = tweedie)
 #tw_preds <- predict(tw, dat, type = "response")
 ilink <- family(tw)$linkinv   # this is the inverse of the link function, as an R function
-pdata <- cbind(dat[,c("windthrow_prct", "dist_to_edge")],
+pdata <- cbind(dat[,c("windthrow_prct", "log_dist_to_edge")],
                as.data.frame(predict(tw, newdata = dat, type = "link", se.fit = TRUE)))
 ## Compute 95% confidence interval on link scale & back transform this & model fit to response scale
 pdata <- transform(pdata,
@@ -3270,7 +3307,7 @@ pdata <- transform(pdata,
 
 
 pdata |>
-  dplyr::mutate(dist_to_edge = exp(dist_to_edge) - 1) |>
+  dplyr::mutate(dist_to_edge = exp(log_dist_to_edge) - 1) |>
   ggplot(aes(x = dist_to_edge)) +
   geom_point(aes(y = windthrow_prct),
              color = "black",

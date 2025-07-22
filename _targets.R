@@ -59,7 +59,7 @@ source("temp/token.R") # note that it is stored in the "temp" folder - this fold
 # is simpler to just manually supply a list of years to the pipeline
 # (aka 'static branching') rather than have the pipeline extract the 
 # years itself (aka 'dynamic branching')
-fvl_years <- data.frame(years = c(2014, 2015, 2016, 2017, 2018, 2020, 2021, 2022, 2023, 2024))
+fvl_years <- data.frame(years = c(2013:2024))
 
 # Add a retirement buffer to the road verifications - i.e.,
 # how many years after the retirement date should be added to keep forestry road sections in?
@@ -113,20 +113,26 @@ list(
                                                years = c(2019:2024), # generate fake data just for the years 2020-2024
                                                n_dens = 180, # generate 180 fake dens - that's approx. how many dens are in our actual dataset
                                                random_seed = 24)), # set a random seed so the same lat/longs are generated each time. Otherwise the pipeline will constantly be triggered to re-run
-  #### Create FVLs ####
-  # Actually create FVLs (will take ~5-6 hours)
-  # TODO wishlist item: organize the pipeline to track each yearly VRI 
-  # and yearly depletion layers, so that the FVL is only re-created
-  # if the underlying VRI and depletion layer is updated.
-  # Pull the lat/long data from each den, to run the verifications on
+  #### Set up verification data ####
+  # We'll only run the verifications if the coordinate or inspection
+  # date changes. (This avoids triggering the lengthy pipeline if 
+  # unrelated text fields in the data are updated.)
+  # Additionally, to ensure we get the cause and effect right of our
+  # forestry data, we actually want to run the verification data on
+  # the forestry data from the *year before*
   tar_target(f_geom, f_full |> # Create an object that is JUST sample_id + sf geometry to run the verifications on. Otherwise, this pipeline gets triggered each time there's a simple data change to any of the text columns.
-               dplyr::mutate(year = lubridate::year(date_inspected)) |> 
-               dplyr::select(den_id, sample_id, date_inspected)), 
+               dplyr::mutate(verification_date = date_inspected - lubridate::years(1)) |>
+               dplyr::select(den_id, sample_id, verification_date)), 
   #### Run forestry verifications ####
   # Run tar_map() - i.e., for each year as defined above in `fvl_years`,
   # run the following 4 functions: create_fvl(), verify_forestry(), 
   # st_proportion_age_class(), and st_road_buffer()
   mapped <- tar_map(
+    #### Create FVLs ####
+    # Actually create FVLs (will take ~5-6 hours)
+    # TODO wishlist item: organize the pipeline to track each yearly VRI 
+    # and yearly depletion layers, so that the FVL is only re-created
+    # if the underlying VRI and depletion layer is updated.
     values = fvl_years, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
     # 1. Create FVLs for each year
     tar_target(FVL,
@@ -138,6 +144,7 @@ list(
     # 2. Run forestry verification algorithms (% forested 60m, dist <40yo forest, dist >40yo forest, dist road) for each year
     tar_target(forestry_verification,
                verify_forestry(feature = f_geom,
+                               date_col = "verification_date",
                                fvl = FVL, # referring to the target `FVL` created in the previous step
                                roads = roads,
                                year = years, # `years` in this case refers to the `years` column in `fvl_years` df
@@ -145,13 +152,15 @@ list(
                )),
     # 3. % age class around each den
     tar_target(prct_age_class_yearly,
-               st_proportion_age_class(feature = f_geom[lubridate::year(f_geom$date_inspected) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
+               st_proportion_age_class(feature = f_geom[lubridate::year(f_geom$verification_date) == years, ], # `years` in this case refers to the `years` column in `fvl_years` df
+                                       date_col = "verification_date",
                                        buffer = 1500,
                                        vri = vri,
                                        depletions = deps)),
     # 4. Road density around each den
     tar_target(road_density_yearly,
-               st_road_density(feature = f_geom[lubridate::year(f_geom$date_inspected) == years, ],
+               st_road_density(feature = f_geom[lubridate::year(f_geom$verification_date) == years, ],
+                               date_col = "verification_date",
                                roads = roads,
                                filter_by_date = FALSE,
                                filter_by_year = TRUE,
@@ -214,8 +223,9 @@ list(
   # forestry data would have theoretically influenced the 
   # *current* year's den status. This function rearranges
   # the data to merge last year's forestry data with this
-  # year's den status. 
-  tar_target(f_analysis, wrangle_bears(f)),
+  # year's den status. **EXCEPT FOR** the automated GIS
+  # verifications!! Those were already run on year (X-1).
+  tar_target(f_analysis, wrangle_bears(f, forestry_verifications_full)),
   #### Extract DEM attributes ####
   tar_target(dens_dem, extract_dem(dens, cded_path = hg_vi_cded)),
   tar_target(pseudo_dens_dem, extract_dem(pseudo_dens, cded_path = hg_vi_cded)),

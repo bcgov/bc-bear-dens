@@ -235,7 +235,7 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
 #'
 #' @param feature Point feature (e.g., den)
 #' @param buffer Buffer size around point feature, in meters (default 1500 m)
-#' @param feature_date_col Date column in the feature layer
+#' @param date_col Date column in the feature layer
 #' @param vri VRI polygon `sf` object
 #' @param vri_year_col VRI reference date column (i.e., year of the dataset)
 #' @param vri_age_col Column name containing forest age (typically, 'proj_age_1' if column names cleaned up)
@@ -244,7 +244,7 @@ st_proportion_forested <- function(feature, fvl, m = 60) {
 #'
 #' @return
 #' @export
-st_proportion_age_class <- function(feature, buffer = 1500, feature_date_col = "date_inspected",
+st_proportion_age_class <- function(feature, buffer = 1500, date_col = "date_inspected",
                                     vri, vri_year_col = "projected_date", vri_age_col = "proj_age_1",
                                     depletions, depletions_year_col = "depletion_year") {
   # Data health checks
@@ -265,7 +265,7 @@ st_proportion_age_class <- function(feature, buffer = 1500, feature_date_col = "
   feature$id_col <- 1:nrow(feature)
   
   # Extract feature year, vri year
-  f1_year <- unique(lubridate::year(feature[[feature_date_col]]))
+  f1_year <- unique(lubridate::year(feature[[date_col]]))
   vri_year <- unique(lubridate::year(vri[[vri_year_col]]))
   
   stopifnot("Can only do proportion forested calcs for one year at a time." = length(f1_year) == 1)
@@ -561,7 +561,7 @@ st_age_class <- function(feature, id_col = "sample_id",
   if (nrow(feature) == 0) return(NULL)
   
   # Extract feature year, vri year
-  #f1_year <- unique(lubridate::year(feature[[feature_date_col]]))
+  #f1_year <- unique(lubridate::year(feature[[date_col]]))
   vri_year <- unique(lubridate::year(vri[[vri_year_col]]))
   
   #stopifnot("Can only do proportion forested calcs for one year at a time." = length(f1_year) == 1)

@@ -406,10 +406,18 @@ verify_bears <- function(dens, f) {
 # *current* year's den status. This function rearranges
 # the data to merge last year's forestry data with this
 # year's den status. 
-wrangle_bears <- function(f) {
+# Secondly, so that we don't have to throw out the entire
+# first years' worth of data for every den, it merges in
+# the GIS-derived forestry values for the first year. 
+wrangle_bears <- function(f, forestry_gis) {
   # Drop any records where there may have been more than
   # one den visit within the year
   f$year <- lubridate::year(f$date_inspected)
+  
+  # Add a den_season col
+  # I.e., if a den was inspected in April 2023, they would be asssessing
+  # whether a bear used the den for the 2022-2023 winter season.
+  f$den_season <- paste0(lubridate::year(f$date_inspected) - 1, "-", lubridate::year(f$date_inspected))
   
   # This is done manually. Can always be revisited down
   # the line if need be.
@@ -438,7 +446,7 @@ wrangle_bears <- function(f) {
   
   # We're going to do this in a simple way... chop the data in half vertically,
   # so we have f_a: den info and f_b: forestry info. 
-  f_a <- dplyr::select(f, den_id, sample_id, date_inspected, year,
+  f_a <- dplyr::select(f, den_id, sample_id, date_inspected, den_season, year,
                        bedding_cup_present, bed_depth, bed_width,
                        bed_length, hair_on_entrance, 
                        hair_in_bed, den_status)
@@ -449,6 +457,35 @@ wrangle_bears <- function(f) {
   # Next, subtract -1 from the den status year - since it's technically
   # whether or not the den was occupied in the *last* year
   f_a$year <- f_a$year - 1
+  
+  # To f_b, we are going to add our first year GIS data
+  # Otherwise we are removing 200+ samples from our dataset!
+  # It's not ideal to use GIS data only, but better than 
+  # throwing it out completely.
+  # First, filter down to only first year of forestry GIS,
+  # Subtract one year from it,
+  # Rename cols to match f_b
+  f_v <- forestry_gis |> 
+    dplyr::mutate(den_id = stringr::str_match(gsub(" ", "", sample_id), '([A-Z]{3}_[a-zA-Z]+_[0-9]{1})')[,1],
+                  date_inspected = stringr::str_match(sample_id, '[0-9]{3,}')[,1],
+                  date_inspected = lubridate::as_date(date_inspected),
+                  year = lubridate::year(date_inspected) - 1
+                  ) |>
+    dplyr::rename(proportion_forested = prop_forest_60m,
+                  v_distance_less40yr_forest = dist_lt40,
+                  v_distance_grtr40year_forest = dist_gt40,
+                  v_distance_nearest_road = dist_road) |>
+    dplyr::mutate(proportion_forested = round(proportion_forested * 100)) |>
+    dplyr::arrange(sample_id) |> 
+    dplyr::group_by(den_id) |>
+    dplyr::slice(1) |>
+    dplyr::mutate(sample_id = paste0(den_id, "_", year, "fv"), # rename the sample_id to make it clear this is forestry GIS data - NOT an actual visit
+                  date_inspected = NA) 
+  
+  # Merge with f_b
+  f_b <- dplyr::bind_rows(f_b, f_v) |>
+    dplyr::arrange(sample_id)
+  
   
   # Now merge the two back together on den_id and year
   # It's gonna cut a lot of data out
