@@ -30,6 +30,9 @@ clean_bears <- function(df) {
   
   # Clean up current layer
   if (layer == "current") {
+    # Clean any den_id whitespace
+    df$den_id <- gsub(" ", "", df$den_id)
+    
     # Clean up title case
     df <- df |> dplyr::mutate_at(c("district", "landscape_unit", "x_f_ownership"),
                                      tools::toTitleCase)
@@ -54,6 +57,10 @@ clean_bears <- function(df) {
   
   # Clean up field visits layer
   if (layer == "field visits") {
+    # Clean any den_id / sample_id whitespace
+    df$den_id <- gsub(" ", "", df$den_id)
+    df$sample_id <- gsub(" ", "", df$sample_id)
+    
     # Clean up date_inspected column for R
     # Note all the other date columns are in genuine UTC
     df$date_inspected <- lubridate::as_datetime(df$date_inspected/1000) |> lubridate::force_tz("America/Vancouver")
@@ -458,16 +465,21 @@ wrangle_bears <- function(f, forestry_gis) {
   # whether or not the den was occupied in the *last* year
   f_a$year <- f_a$year - 1
   
-  # To f_b, we are going to add our first year GIS data
+  # To f_b, we are going to merge our forestry GIS data
   # Otherwise we are removing 200+ samples from our dataset!
-  # It's not ideal to use GIS data only, but better than 
-  # throwing it out completely.
+  # Basically, in cases where we don't have field forestry
+  # data (e.g., the year before the first den visit, in
+  # the vast majority of cases), we'll use the GIS forestry
+  # data in lieu.
+  # It's not ideal to use GIS data only for these cases, but 
+  # better than throwing out that year's den data completely.
   # First, filter down to only first year of forestry GIS,
   # Subtract one year from it,
-  # Rename cols to match f_b
+  # Rename cols to match f_b.
   f_v <- forestry_gis |> 
-    dplyr::mutate(den_id = stringr::str_match(gsub(" ", "", sample_id), '([A-Z]{3}_[a-zA-Z]+_[0-9]{1})')[,1],
-                  date_inspected = stringr::str_match(sample_id, '[0-9]{3,}')[,1],
+    dplyr::mutate(den_id = sub("_[^_]+$", "", sample_id),
+                  date_inspected = stringr::str_match(sample_id, "_[^_]+$")[,1],
+                  date_inspected = sub("_", "", date_inspected),
                   date_inspected = lubridate::as_date(date_inspected),
                   year = lubridate::year(date_inspected) - 1
                   ) |>
@@ -478,20 +490,43 @@ wrangle_bears <- function(f, forestry_gis) {
     dplyr::mutate(proportion_forested = round(proportion_forested * 100)) |>
     dplyr::arrange(sample_id) |> 
     dplyr::group_by(den_id) |>
-    dplyr::slice(1) |>
+    #dplyr::slice(1) |>
     dplyr::mutate(sample_id = paste0(den_id, "_", year, "fv"), # rename the sample_id to make it clear this is forestry GIS data - NOT an actual visit
-                  date_inspected = NA) 
+                  date_inspected = NA)
   
   # Merge with f_b
-  f_b <- dplyr::bind_rows(f_b, f_v) |>
-    dplyr::arrange(sample_id)
+  f_bv <- merge(f_v, f_b, by = c("den_id", "year"), all.x = TRUE)
   
+  # Whenever possible, use real field data (.y) over GIS data (.x)
+  f_bv$sample_id <- ifelse(is.na(f_bv$sample_id.y), f_bv$sample_id.x, f_bv$sample_id.y)
+  f_bv$date_inspected <- dplyr::if_else(is.na(f_bv$date_inspected.y), f_bv$date_inspected.x, f_bv$date_inspected.y) # dplyr if_else to not mess up date
+  f_bv$proportion_forested <- ifelse(is.na(f_bv$proportion_forested.y), f_bv$proportion_forested.x, f_bv$proportion_forested.y)
+  f_bv$v_distance_less40yr_forest <- ifelse(is.na(f_bv$v_distance_less40yr_forest.y), f_bv$v_distance_less40yr_forest.x, f_bv$v_distance_less40yr_forest.y)
+  f_bv$v_distance_grtr40year_forest <- ifelse(is.na(f_bv$v_distance_grtr40year_forest.y), f_bv$v_distance_grtr40year_forest.x, f_bv$v_distance_grtr40year_forest.y)
+  f_bv$v_distance_nearest_road <- ifelse(is.na(f_bv$v_distance_nearest_road.y), f_bv$v_distance_nearest_road.x, f_bv$v_distance_nearest_road.y)
+  
+  # Rearrange to only necessary cols
+  f_bv <- f_bv |> 
+    dplyr::select(!dplyr::ends_with(c(".x", ".y"))) |> 
+    dplyr::select(den_id, sample_id, date_inspected, year, 
+                  forestry_treatment_desc, 
+                  distance_nearest_tree_field, 
+                  proportion_forested_field, proportion_forested,
+                  distance_less40yr_forest_field, v_distance_less40yr_forest,
+                  distance_grtr40yr_forest_field, v_distance_grtr40year_forest,
+                  distance_nearest_road, v_distance_nearest_road,
+                  proportion_tree_windthrown, 
+                  x_windthrow_code)
   
   # Now merge the two back together on den_id and year
   # It's gonna cut a lot of data out
-  f <- merge(f_a, f_b, by = c("den_id", "year"), suffixes = c("_den", "_forest")) 
+  f0 <- merge(f_a, f_bv, by = c("den_id", "year"), suffixes = c("_den", "_forest"))
   
-  return(f)
+  # Health checks
+  #f[["sample_id"]][!(f$sample_id %in% f0$sample_id_den)] # MAG_TimmelHill_1 vs MAG_TimletHill_1!!!!!
+  #f0[["sample_id_den"]][!(f0$sample_id_den %in% f$sample_id)]
+  
+  return(f0)
 }
 
 

@@ -32,7 +32,7 @@ knitr::opts_chunk$set(warning = FALSE, # don't print code warnings in slides
                       )
 
 # Analysis options
-den_status_strict <- FALSE # should the first record of "Active recently (0-4 seasons)" be counted as "Active"? TRUE or FALSE
+den_status_strict <- FALSE # should the first record of "Active recently (0-4 seasons)" be counted as "Active"? TRUE or FALSE. FALSE = we use the first record in our models. As it stands, it makes no difference to our results.
 
 # Load packages
 library(targets)  # load up data targets
@@ -69,11 +69,22 @@ withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(f_analysis))
 # prop_1km = proportion forested within 1.5km
 prop_1km <- withr::with_dir(rprojroot::find_root('_targets.R'),
                             tar_read(prct_age_class_1.5km)) # use `tar_read` when you want to read a target but assign it to a new object name in the R environment
+# Drop a few dupe records - they're from 3 dens that were visited twice
+# within one year, so they each got an extra row in `prop_1km`
+prop_1km <- dplyr::select(prop_1km, -sample_id) # we'll use den_id + year to merge
+prop_1km <- unique(prop_1km)
+# Bin proportion forested data into groups (sort of ~young, old, medium, very old)
+prop_1km$lt_3 <- rowSums(prop_1km[,c("age_class_1", "age_class_2")])
+prop_1km$gt_3 <- rowSums(prop_1km[,6:12])
+prop_1km$three_to_7 <- rowSums(prop_1km[,6:10])
+prop_1km$gt_8 <- rowSums(prop_1km[,c("age_class_8", "age_class_9")])
 
 # road_density = road density around each den
 withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(road_density))
-road_density <- merge(f[3], road_density, all.x = TRUE) # merge in the other sample id's (with zero road density) into road_density dataset
-road_density$road_density_m2 <- ifelse(is.na(road_density$road_density_m2), 0, road_density$road_density_m2)
+# Drop a few dupe records - they're from 3 dens that were visited twice
+# within one year, so they each got an extra row in `prop_1km`
+road_density <- dplyr::select(road_density, -sample_id) # we'll use den_id + year to merge
+road_density <- unique(road_density)
 
 # Define list of "for sure dens"
 for_sure_dens <- c("Active in last denning season", 
@@ -162,6 +173,24 @@ f <- f |>
   dplyr::group_by(den_id) |>
   dplyr::mutate(active_n = sum(den_status_binary == "Active")) |>
   dplyr::mutate(ever_active_yn = active_n > 0)
+
+# Add a `year` column
+f$year <- lubridate::year(f$date_inspected)
+
+# Merge in landscape level variables
+
+# Merge landscape scale forestry metrics with the f dataset
+# Merge % age class to `f`
+f <- merge(f, prop_1km, by = c("den_id", "year"), all.x = TRUE)
+
+# Note the all.x = TRUE. If the den isn't in
+# the road density df, the road density is 0.
+f <- merge(f, road_density, 
+                    by = c("den_id", "year"), # again, merging GIS forestry data for the year PRIOR to the den status year
+                    all.x = TRUE) # all.x = TRUE is necessary if there's no roads (thus NULL road density)
+
+f$road_density_m2 <- ifelse(is.na(f$road_density_m2), 0, f$road_density_m2)
+
 ```
 
 
@@ -225,26 +254,10 @@ f_analysis <- f_analysis |>
 # Merge spatial/static den data with analysis subset of field visits
 f_analysis <- merge(dens, f_analysis, by = "den_id")
 
-# Remove dupes in prop_1km
-# Drop a few dupe records - they're from 3 dens that were visited twice
-# within one year, so they each got an extra row in `prop_1km`
-prop_1km <- dplyr::select(prop_1km, -sample_id) # we'll use den_id + year to merge
-prop_1km <- unique(prop_1km)
-# Bin proportion forested data into groups (sort of ~young, old, medium, very old)
-prop_1km$lt_3 <- rowSums(prop_1km[,c("age_class_1", "age_class_2")])
-prop_1km$gt_3 <- rowSums(prop_1km[,6:12])
-prop_1km$three_to_7 <- rowSums(prop_1km[,6:10])
-prop_1km$gt_8 <- rowSums(prop_1km[,c("age_class_8", "age_class_9")])
-
 # Merge landscape scale forestry metrics with the f_analysis dataset
 # Merge % age class to `f_analysis`
 f_analysis <- merge(f_analysis, prop_1km, by = c("den_id", "year"), all.x = TRUE)
 
-# Remove dupes in road_density
-# Drop a few dupe records - they're from 3 dens that were visited twice
-# within one year, so they each got an extra row in `prop_1km`
-road_density <- dplyr::select(road_density, -sample_id) # we'll use den_id + year to merge
-road_density <- unique(road_density)
 # Note the all.x = TRUE. If the den isn't in
 # the road density df, the road density is 0.
 f_analysis <- merge(f_analysis, road_density, 
@@ -1833,6 +1846,26 @@ ggplot() +
   labs(caption = "In darker grey, the study area. Green indicates Provincial/Federal parks or proteceted areas.") +
   theme(panel.background = element_rect(fill = "transparent",
                                   colour = NA_character_)) # necessary to avoid drawing panel outline
+
+# Paper figure with no pseudo samples:
+# ggplot() +
+#     geom_sf(data = bc, fill = "grey") +
+#     geom_sf(data = study_area, fill = "#a4a4a4", color = "#4a4a4a") +
+#     geom_sf(data = parks, fill = "lightgreen", alpha = 0.6) +
+#     geom_sf(data = dens,
+#             aes(shape = in_park),
+#             fill = "grey15",
+#             color = "grey90") +
+#     scale_shape_manual(name = "Location", values = c(21, 24), labels = c("Outside a park/protected area", "In a park/protected area")) +
+#     scale_x_continuous(expand = c(0, 0)) +
+#     scale_y_continuous(expand = c(0, 0)) +
+#     coord_sf(xlim = c(bbox[1], bbox[3]),
+#              ylim = c(bbox[2], bbox[4])) +
+#     labs(caption = "In darker grey, the study area. Green indicates Provincial/Federal parks or proteceted areas.") +
+#     theme(panel.background = element_rect(fill = "transparent",
+#                                           colour = NA_character_), # necessary to avoid drawing panel outline
+#           legend.position = c(0.8, 0.87),
+#           legend.background = element_rect(color = NA, fill = NA),)
 ```
 
 ---
@@ -2382,13 +2415,32 @@ By far and away, our base model `model00` is consistently one of the top models,
 ```{r den status models}
 # The modeling data
 dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active") & f_analysis$den_status %in% for_sure_dens, ]
-dat <- dat[, c("den_status_binary", "den_id", "year", "age", 
+
+# Confirm that a strict vs lenient "for sure dens" doesn't change the results!
+#dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active"), ]
+
+# Confirm that using the regular `f` dataset (the one that DOESN'T match to 
+# previous years' forestry) produces results that don't make sense
+# It still produces the same top model, but 2022-2024 show HUGE
+# confidence intervals. Anything <2020 is cut out entirely, bc it's not
+# matched to GIS. All-in-all better to use `f_analysis`.
+# dat <- f_full[f_full$den_status_binary %in% c("Active", "Not Active") & f_full$den_status %in% for_sure_dens, ]
+# dat <- sf::st_drop_geometry(dat)
+# dat$dist_lt40 <- dat$v_dist_lt40
+# dat$dist_gt40 <- dat$v_dist_gt40
+# dat$dist_road <- dat$v_dist_road
+
+dat <- dat[, c("den_status_binary", "den_id",
+               "year",
+               "age",
                "hair_in_bed", # will be used in th next set of models
                "region", ##"latitude", "longitude",
                #"elevation_m", # some missing cases?
                "dist_lt40", "dist_gt40", "dist_from_edge", "dist_road",
                "v_prop_forest_60m", "log_dist_lt40", "log_dist_gt40", "log_dist_road",
-               "log_dist_from_edge", "lt_3", "gt_8", "road_density_m2"#,
+               "log_dist_from_edge",
+               "lt_3", "gt_8",
+               "road_density_m2"#,
                #"forestry_treatment_desc" # many missing cases
                )]
 dat <- sf::st_drop_geometry(dat)
@@ -2470,6 +2522,24 @@ summary(model00)
 
 ```{r n field visits per year 2}
 f |> 
+  dplyr::mutate(year = lubridate::year(date_inspected)) |>
+  ggplot(aes(x = year, 
+             fill = den_status_binary)) +
+  geom_bar(position = "stack") +
+  scale_x_continuous(breaks = 2014:2024) +
+  labs(x = "Year",
+       y = "N field visits",
+       title = "Number of field visits per year") +
+  theme_minimal() 
+```
+
+---
+
+## Question 1
+
+```{r n active per year}
+f |> 
+  dplyr::filter(den_status_binary == "Active") |>
   dplyr::mutate(year = lubridate::year(date_inspected)) |>
   ggplot(aes(x = year, 
              fill = den_status_binary)) +
@@ -2573,7 +2643,8 @@ The next-best fit is the model that incorporates distance from mature stands (`d
 
 .small-code[
 ```{r}
-top_model2 <- row.names(as.data.frame(models))[[2]]
+#top_model2 <- row.names(as.data.frame(models))[[2]]
+top_model2 <- "model0c"
 summary(get(top_model2))
 ```
 ]
