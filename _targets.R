@@ -237,11 +237,20 @@ list(
                                           vri = vri)),
   tar_target(pseudo_dens_age_class, st_age_class(feature = pseudo_dens, 
                                                  id_col = "sample_id",
-                                                 vri = vri))
+                                                 vri = vri)),
   # Summary statistics
   # For now, these summary stats scripts live in the "Data summary" folder
   # and haven't been incorporated into the targets pipeline directly.
   # TODO: move stats from other script to here
   # Analysis
+  
+  #### Genetics data ####
+  # Make sure you are connected to the VPN for this step
+  # tar_target(genetics_path, "//sfp.idir.bcgov/s109/S09006/LUPCE_COAST/ORCS/Ecosystems/Black Bear/BEAR DEN DATABASE/04 - HAIR SAMPLE DATA/genetics_g2300_g2382_g2459_g2510.csv",
+  #            format = "file"),
+  # tar_target(genetics, read.csv(genetics_path))
+  tar_target(genetics_path, "//sfp.idir.bcgov/s109/S09006/LUPCE_COAST/ORCS/Ecosystems/Black Bear/BEAR DEN DATABASE/04 - HAIR SAMPLE DATA/g2510 Results.xlsx",
+             format = "file"),
+  tar_target(genetics, readxl::read_excel(genetics_path, skip = 1))
   
 )
