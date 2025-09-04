@@ -802,9 +802,9 @@ if (den_status_strict) {
     table() |>
     knitr::kable(col.names = c("Den Status", "N")) |> 
     kableExtra::kable_styling() |> 
-    kableExtra::row_spec(c(1, 3), bold = FALSE, background = "#b58900") |>
-    kableExtra::row_spec(c(4:7), bold = FALSE, background = "#93a1a1") |>
-    kableExtra::row_spec(c(2, 8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
+    kableExtra::row_spec(c(1), bold = FALSE, background = "#b58900") |>
+    kableExtra::row_spec(c(3:6), bold = FALSE, background = "#93a1a1") |>
+    kableExtra::row_spec(c(2, 7:8), bold = TRUE, color = "white", background = "#cb4b16") |>
     kableExtra::kable_styling(font_size = 14)
 } else {
  f |>
@@ -815,10 +815,10 @@ if (den_status_strict) {
   table() |>
   knitr::kable(col.names = c("Den Status", "N")) |> 
   kableExtra::kable_styling() |> 
-  kableExtra::row_spec(c(1, 3), bold = FALSE, background = "#b58900") |>
+  kableExtra::row_spec(c(1), bold = FALSE, background = "#b58900") |>
   kableExtra::row_spec(c(2), bold = TRUE, background = "#e1c056") |>
-  kableExtra::row_spec(c(4:7), bold = FALSE, background = "#93a1a1") |>
-  kableExtra::row_spec(c(8:9), bold = TRUE, color = "white", background = "#cb4b16") |>
+  kableExtra::row_spec(c(3:6), bold = FALSE, background = "#93a1a1") |>
+  kableExtra::row_spec(c(7:8), bold = TRUE, color = "white", background = "#cb4b16") |>
   kableExtra::kable_styling(font_size = 14) 
 }
 ```
