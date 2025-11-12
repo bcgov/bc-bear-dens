@@ -517,8 +517,8 @@ st_road_density <- function(feature,
   intxn <- suppressWarnings(sf::st_intersection(feature, roads))
   
   # Filter down to relevant cols
-  intxn$year <- f_year
-  intxn <- intxn[,c("den_id", "sample_id", "year")]
+  if (filter_by_year) intxn$year <- f_year
+  intxn <- dplyr::select(intxn, dplyr::any_of(c("den_id", "sample_id", "year")))
   
   # Calculate road area
   intxn$road_area <- sf::st_area(intxn)
