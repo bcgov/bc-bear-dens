@@ -1,3 +1,5 @@
+# Windthrow Analysis Pt 1
+
 # Authorship:
 # Much of this analysis was originally written by Gavin Newall
 # in 2023. This code has been cleaned up where appropriate
@@ -17,30 +19,30 @@ library(glmmTMB) # modeling non-linear relationships + distributions
 library(MASS) # modeling ordered logistic regression
 library(brant) # brant statistical test
 library(effects) # extract model effect sizes
-#library(car) # 
-library(splines)
+library(splines) # smoother curves on plots
+library(khroma) # color schemes
 
-tar_load(f_analysis) # field visit data rearranged such that previous year's forestry data matches current year's den status
+tar_load(f) # field visit data
 tar_load(dens) # static den data
 
 # Rename forestry columns to more consistent/easier to use names
-f_analysis <- dplyr::rename(f_analysis,
-                            "nearest_tree_m" = "distance_nearest_tree_field",
-                            "f_prop_forest_60m" = "proportion_forested_field",
-                            "v_prop_forest_60m" = "proportion_forested",
-                            "f_dist_lt40" = "distance_less40yr_forest_field", 
-                            "v_dist_lt40" = "v_distance_less40yr_forest",
-                            "f_dist_gt40" = "distance_grtr40yr_forest_field", 
-                            "v_dist_gt40" = "v_distance_grtr40year_forest", 
-                            "f_dist_road" = "distance_nearest_road", 
-                            "v_dist_road" = "v_distance_nearest_road",
-                            "windthrow_prct" = "proportion_tree_windthrown", 
-                            "windthrow_code" = "x_windthrow_code")
+f <- dplyr::rename(f,
+                   "nearest_tree_m" = "distance_nearest_tree_field",
+                   "f_prop_forest_60m" = "proportion_forested_field",
+                   "v_prop_forest_60m" = "proportion_forested",
+                   "f_dist_lt40" = "distance_less40yr_forest_field", 
+                   "v_dist_lt40" = "v_distance_less40yr_forest",
+                   "f_dist_gt40" = "distance_grtr40yr_forest_field", 
+                   "v_dist_gt40" = "v_distance_grtr40year_forest", 
+                   "f_dist_road" = "distance_nearest_road", 
+                   "v_dist_road" = "v_distance_nearest_road",
+                   "windthrow_prct" = "proportion_tree_windthrown", 
+                   "windthrow_code" = "x_windthrow_code")
 
 # Merge static den data to field visits data
-f <- merge(f_analysis, dens, by = "den_id")
+f <- merge(f, dens, by = "den_id")
 
-rm(f_analysis, dens)
+rm(dens)
 
 
 ## 01-1 Set factors ----
@@ -82,20 +84,21 @@ f$patch <- factor(f$forestry_treatment_desc,
 # not related to harvest.
 
 # Harvested
-f[which(f$f_prop_forest_60m < 100 & (f$f_dist_lt40 <= 60 | f$f_dist_road <= 60)), ]
+f[which(f$v_prop_forest_60m < 100 & (f$v_dist_lt40 <= 60 | f$v_dist_road <= 60)), ]
 
 # Not harvested
-f[which(f$f_prop_forest_60m == 100), ]
-f[which(f$f_prop_forest_60m < 100 & (f$f_dist_lt40 > 60 & f$f_dist_road > 60)), ]
+f[which(f$v_prop_forest_60m == 100), ]
+f[which(f$v_prop_forest_60m < 100 & (f$v_dist_lt40 > 60 & f$v_dist_road > 60)), ]
 
 # Now turn it into a column of data
-f$harvested <- ifelse((f$f_prop_forest_60m < 100 & (f$f_dist_lt40 <= 60 | f$f_dist_road <= 60)),
+f$harvested <- ifelse((f$v_prop_forest_60m < 100 & (f$v_dist_lt40 <= 60 | f$v_dist_road <= 60)),
                       "Harvested",
                       "Not harvested")
 f$harvested_yn <- ifelse(f$harvested == "Harvested",
                          TRUE,
                          FALSE)
 
+plyr::count(f$harvested)
 
 ## 01-3 Categorize windthrow severity ----
 
@@ -126,6 +129,19 @@ f$dist_to_edge <- ifelse(f$f_dist_lt40 < f$f_dist_road,
                          f$f_dist_lt40,
                          f$f_dist_road)
 
+
+## 01-5 Modeling dataframe ----
+
+# Subset our data for our models
+dat <- f[,c("den_id", "windthrow_prct", "windthrow_sev", "dist_to_edge", "harvested")] # cols of interest (N = 601)
+dat <- na.omit(dat) # remove NAs (N = 578)
+dat <- unique(dat) # remove pseudoreplicates (N = 263)
+dat <- dat[dat$windthrow_sev != "At risk", ] # remove "At risk" category (N = 228)
+dat <- dat[dat$dist_to_edge < 6000, ] # remove outlier (N = 227)
+
+# Prep model variables
+dat$windthrow_prct <- dat$windthrow_prct / 100 # set % to run 0-1
+dat$windthrow_sev <- factor(dat$windthrow_sev, levels = c("Insignificant", "Moderate", "Severe")) # Remove 'At risk' from levels
 
 # 02 EXPLORATORY STATS ----------------------------------------------------
 
@@ -166,6 +182,14 @@ f[!is.na(f$patch), ] |>
 ## 02-4 Harvest status ----
 plyr::count(f$harvested)
 
+f |>
+  dplyr::filter(!is.na(harvested),
+                !is.na(windthrow_prct)) |>
+  dplyr::select(harvested, windthrow_prct) |>
+  dplyr::group_by(harvested) |>
+  dplyr::summarise(mean = mean(windthrow_prct),
+                   sd = sd(windthrow_prct))
+
 ggplot(f,
        aes(x = harvested)) +
   geom_bar() +
@@ -179,8 +203,12 @@ f[!is.na(f$harvested), ] |>
   geom_signif(comparisons = list(c("Harvested", "Not harvested")),
               map_signif_level = TRUE,
               test = "wilcox.test") +
+  labs(x = "Harvest Status",
+       y = "Windthrow within 60 m radius (%)") +
   theme_minimal()
 
+
+wilcox.test(windthrow_prct ~ harvested, f)
 
 ## 02-5 Distance from edge ----
 # Again, this assumes that distance to <40 yo forest OR
@@ -242,6 +270,19 @@ f |>
               test = "wilcox.test") +
   theme_minimal()
 
+f |>
+  dplyr::filter(!is.na(age_class)) |>
+  dplyr::mutate(age_class = ifelse(age_class %in% c("1: 0-20", "2: 21-40"),
+                                   "Immature (<40 yo)",
+                                   "Mature (>40 yo)")) |>
+  ggplot(aes(x = age_class,
+             y = windthrow_prct)) +
+  geom_jitter() +
+  geom_boxplot(fill = NA) +
+  geom_signif(comparisons = list(c("Immature (<40 yo)", "Mature (>40 yo)")),
+              map_signif_level = TRUE,
+              test = "wilcox.test") +
+  theme_minimal()
 
 ## 02-8 Canopy closure ----
 
@@ -290,8 +331,7 @@ ggplot(f,
 
 # First for ease of use let's isolate windthrow prct (and throw out NA
 # windthrow prcts while we are at it).
-wp <- f$windthrow_prct[!is.na(f$windthrow_prct)]
-
+wp <- dat$windthrow_prct
 
 # See where our % falls within a set of common data distributions
 descdist(wp, boot = 1000) # looks like our w% is beta distributed data!
@@ -305,7 +345,9 @@ summary(fb)
 # Just to be sure, let's compare our actual windthrow data versus
 # randomly generated data that follows a beta distribution with 
 # alpha = 0.55 and beta = 3.
-r <- rbeta(n = 1000, shape1 = 0.55, shape2 = 3)
+r <- rbeta(n = 1000, 
+           shape1 = fb$estimate[1], 
+           fb$estimate[2])
 
 # Hmm..... not quite right
 data.frame(value = wp,
@@ -373,126 +415,230 @@ rm(fb, fg, fnb, plot.legend, r, w, wp)
 # The GAMLSS package supports modeling data with the Weibull distribution,
 # so that's what we'll use.
 
-dat <- f[,c("windthrow_prct", "dist_to_edge")]
-dat <- dat[dat$dist_to_edge < 6000, ] # remove this outlier
-dat$dist_to_edge <- log(dat$dist_to_edge + 1)
-dat <- na.omit(dat)
-dat$windthrow_prct <- dat$windthrow_prct / 100
-
-# Remove all the duplicates
-dat <- unique(dat)
+# `dat` is defined at the top of our script, section 01-5
+# Take the log of dist to edge
+dat$log_dist_to_edge <- log(dat$dist_to_edge + 1)
 
 # Our basic linear model to compare it to
 m0 <- lm(formula = windthrow_prct ~ dist_to_edge,
+         data = dat)
+# And log-linear model
+m1 <- lm(formula = windthrow_prct ~ log_dist_to_edge,
          data = dat)
 
 # Then fit to each of the three Weibull fitting options in the package
 
 # GAMLSS is strict about the Weibull distribution not containing any zeroes...
-# add +0.1 to any values that are 0
-w1 <- gamlss(formula = (windthrow_prct + 0.1) ~ dist_to_edge, 
+# add +0.01 to any values that are 0
+w1 <- gamlss(formula = (windthrow_prct + 0.01) ~ log_dist_to_edge, 
              data = dat,
              family = WEI,
              mu.start = fw$estimate[[1]],
              #mu.fix = TRUE,
              sigma.start = fw$estimate[[2]],
              #sigma.fix = TRUE
+             mu.link = "identity",
+             sigma.link = "identity"
              )
 
-w2 <- gamlss(formula = (windthrow_prct + 0.1) ~ dist_to_edge, 
+w2 <- gamlss(formula = (windthrow_prct + 0.01) ~ log_dist_to_edge, 
              data = dat,
              family = WEI2,
              mu.start = fw$estimate[[1]],
-             sigma.start = fw$estimate[[2]])
+             sigma.start = fw$estimate[[2]],
+             mu.link = "identity",
+             sigma.link = "identity")
 
-w3 <- gamlss(formula = (windthrow_prct + 0.1) ~ dist_to_edge, 
+w3 <- gamlss(formula = (windthrow_prct + 0.01) ~ log_dist_to_edge, 
              data = dat,
              family = WEI3,
              mu.start = fw$estimate[[1]],
-             sigma.start = fw$estimate[[2]])
+             sigma.start = fw$estimate[[2]],
+             mu.link = "identity",
+             sigma.link = "identity")
 
-nb1 <- glmmTMB(formula = (windthrow_prct * 100) ~ dist_to_edge,
+# Our fitdist test indicated beta was the first choice to fit
+beta <- glmmTMB(formula = windthrow_prct ~ log_dist_to_edge,
+                data = dat, 
+                family = beta_family,
+                ziformula = ~1, # must to ZI bc base beta distr CANNOT have zeroes
+                REML = FALSE) 
+
+nb0 <- glmmTMB(formula = (windthrow_prct * 100) ~ log_dist_to_edge,
                data = dat,
                family = nbinom1,
-               ziformula = ~1)
+               ziformula = ~0,
+               REML = FALSE)
 
-tw <- glmmTMB(formula = (windthrow_prct * 100) ~ dist_to_edge,
+nb1 <- glmmTMB(formula = (windthrow_prct * 100) ~ log_dist_to_edge,
                data = dat,
-               family = tweedie)
+               family = nbinom1,
+               ziformula = ~1,
+               REML = FALSE)
 
-bbmle::AICtab(m0, w1, w2, w3, nb1, tw, base = TRUE)
+tw <- glmmTMB(formula = (windthrow_prct * 100) ~ log_dist_to_edge,
+               data = dat,
+               family = tweedie,
+              REML = FALSE)
+
+gam0 <- mgcv::gam(formula = windthrow_prct ~ s(log_dist_to_edge),
+                  data = dat)
+
+bbmle::AICtab(m0, m1, 
+              w1, w2, #w3, 
+              beta, 
+              nb0, nb1, 
+              tw, gam0, base = TRUE)
 
 plot(m0, ask = FALSE) # ask = FALSE to just show all 4 plots in one go instead of having to press Enter to display next plot
+plot(m1, ask = FALSE)
 plot(w1)
 plot(w2) # just totally wonky
-plot(w3)
+#plot(w3) # failed
+plot(gam0)
 
+sjPlot::plot_model(beta, type = "pred")
+sjPlot::plot_model(nb0, type = "pred", transform = "exp")
 sjPlot::plot_model(nb1, type = "pred", transform = "exp")
 sjPlot::plot_model(tw, type = "pred", transform = "exp")
+sjPlot::plot_model(gam0, type = "pred")
+
+DHARMa::testResiduals(m0)
+DHARMa::testResiduals(m1)
+DHARMa::testResiduals(w1$residuals)
+DHARMa::testResiduals(w2$residuals)
+#DHARMa::testResiduals(w3$residuals)
+DHARMa::testResiduals(beta) # ok residuals
+DHARMa::testResiduals(nb0) # healthy residuals
+DHARMa::testResiduals(nb1) # healthy residuals
+DHARMa::testResiduals(tw) # healthy residuals
+DHARMa::testResiduals(gam0)
+
+gratia::draw(gam0)
 
 # It's not great, but it's a lot better than the linear model fit.
 # Let's compare the predictions of the model to the actual values.
+# First prepare inverse link functions to correctly predict.
+# The `m0` and `w` models all have identity (1 to 1) links so no need to 
+# define the inverse link fxn. 
+ilink_beta <- family(beta)$linkinv
+ilink_nb0 <- family(nb0)$linkinv
+ilink_nb1 <- family(nb1)$linkinv
+ilink_tw <- family(tw)$linkinv
+
 linear_preds <- predict(m0, data = dat, type = "response")
+loglinear_preds <- predict(m1, data = dat, type = "response")
 weibull1_preds <- predict(w1, data = dat, type = "response")
 weibull2_preds <- predict(w2, data = dat, type = "response") # just totally wonky
-weibull3_preds <- predict(w3, data = dat, type = "response")
-nb_preds <- predict(nb1, dat, type = "response") / 100 # get it back on 0-1 scale
+#weibull3_preds <- predict(w3, data = dat, type = "response")
+beta_preds <- predict(beta, dat, type = "response")
+nb0_preds <- predict(nb0, dat, type = "response") / 100 # get it back on 0-1 scale
+nb1_preds <- predict(nb1, dat, type = "response") / 100 # get it back on 0-1 scale
 tw_preds <- predict(tw, dat, type = "response") / 100 # get it back on 0-1 scale
+
+beta_preds <- transform(beta_preds, ilink_beta)[[1]]
+nb0_preds <- transform(nb0_preds, ilink_nb0)[[1]]
+nb1_preds <- transform(nb1_preds, ilink_nb1)[[1]]
+tw_preds <- transform(tw_preds, ilink_tw)[[1]]
 
 # Now let's plot up real values with all the predicted values from 
 # each model:
 dat |>
   dplyr::mutate(source = "real data") |>
-  dplyr::bind_rows(data.frame(windthrow_prct = linear_preds,
+  # dplyr::bind_rows(data.frame(windthrow_prct = linear_preds,
+  #                             dist_to_edge = dat$dist_to_edge,
+  #                             source = "linear model predictions")) |>
+  dplyr::bind_rows(data.frame(windthrow_prct = loglinear_preds,
                               dist_to_edge = dat$dist_to_edge,
-                              source = "linear model predictions")) |>
-  dplyr::bind_rows(data.frame(windthrow_prct = weibull1_preds,
-                              dist_to_edge = dat$dist_to_edge,
-                              source = "Weibull1 model predictions")) |>
+                              source = "log-linear model predictions")) |>
+  # dplyr::bind_rows(data.frame(windthrow_prct = weibull1_preds,
+  #                             dist_to_edge = dat$dist_to_edge,
+  #                             source = "Weibull1 model predictions")) |>
   # dplyr::bind_rows(data.frame(windthrow_prct = weibull2_preds,
   #                             dist_to_edge = dat$dist_to_edge,
   #                             source = "Weibull2 model predictions")) |>
-  dplyr::bind_rows(data.frame(windthrow_prct = weibull3_preds,
+  # dplyr::bind_rows(data.frame(windthrow_prct = weibull3_preds,
+  #                             dist_to_edge = dat$dist_to_edge,
+  #                             source = "Weibull3 model predictions")) |>
+  dplyr::bind_rows(data.frame(windthrow_prct = beta_preds,
                               dist_to_edge = dat$dist_to_edge,
-                              source = "Weibull3 model predictions")) |>
-  dplyr::bind_rows(data.frame(windthrow_prct = nb_preds,
+                              source = "beta model predictions")) |>
+  dplyr::bind_rows(data.frame(windthrow_prct = nb0_preds,
                               dist_to_edge = dat$dist_to_edge,
-                              source = "Negative Binomial model predictions")) |>
+                              source = "NB model predictions")) |>
+  dplyr::bind_rows(data.frame(windthrow_prct = nb1_preds,
+                              dist_to_edge = dat$dist_to_edge,
+                              source = "ZINB model predictions")) |>
   dplyr::bind_rows(data.frame(windthrow_prct = tw_preds,
                               dist_to_edge = dat$dist_to_edge,
                               source = "Tweedie model predictions")) |>
-  dplyr::mutate(dist_to_edge = exp(dist_to_edge)) |> # back-transform the log scale
   ggplot(aes(x = dist_to_edge,
              y = windthrow_prct,
              color = source,
              group = source)) +
   geom_point() +
+  scale_x_continuous(limits = c(0, 1100)) +
   theme_minimal()
 
+bbmle::AICtab(m1, beta, nb0, nb1, tw) # nb0 and nb1 basically the same
 
-# Well, they're all terrible, but notably for every single one the 
+# Well, they're not perfect, but notably for every single one the 
 # relationship is significant. There's a significantly negative relationship
 # between distance to edge and % windthrow.
 summary(m0) # base linear model (AIC -263)
-summary(w1) # best fit - Weibull 1 (AIC -573)
-summary(tw) # tweedie (AIC 2153; though note data were transformed so AIC not comparable)
+summary(m1)
+summary(w1) # best AIC, but bad residuals - Weibull 1 (AIC -573)
+summary(beta)
+summary(nb1)# better AIC out of the two w good residuals
+summary(tw) # worse AIC out of the two w good residuals tweedie (AIC 2153; though note data were transformed so AIC not comparable)
+
+# Ultimately, keep the `nb` models.
+# Create figure for publication.
+pdata <- cbind(dat[,c("windthrow_prct", "log_dist_to_edge")],
+               as.data.frame(predict(nb1, newdata = dat, type = "link", se.fit = TRUE)))
+## Compute 95% confidence interval on link scale & back transform this & model fit to response scale
+pdata <- transform(pdata,
+                   upper  = ilink_nb1(fit + (1.96 * se.fit)) / 100,
+                   lower  = ilink_nb1(fit - (1.96 * se.fit)) / 100,
+                   fitted = ilink_nb1(fit) / 100)
+
+pdata |>
+  dplyr::mutate(dist_to_edge = exp(log_dist_to_edge) - 1) |>
+  ggplot(aes(x = dist_to_edge)) +
+  geom_point(aes(y = windthrow_prct),
+             color = "black",
+             alpha = 0.5,
+             shape = 4) + 
+  geom_ribbon(aes(ymin = lower,
+                  ymax = upper),
+              alpha = 0.2) +
+  geom_line(aes(y = fitted), color = "red") +
+  coord_cartesian(xlim = c(0, 1000)) +
+  scale_y_continuous(limits = c(0, 1), 
+                     labels = c(0, 25, 50, 75, 100)) +
+  labs(#title = "Distance to Edge vs Windthrow (%)",
+       x = "Distance to Edge",
+       y = "Windthrow within 60 m radius (%)") +
+  theme_minimal()
 
 # Remove clutter
-rm(fw, nb1, tw, w2, w3, linear_preds, nb_preds, tw_preds, weibull1_preds, 
-   weibull2_preds, weibull3_preds)
+rm(fw, m0,
+   beta, w1, w2, w3, tw, gam0, nb0, nb1,
+   linear_preds, weibull1_preds, weibull2_preds, #weibull3_preds, 
+   ilink_beta, ilink_nb0, ilink_nb1, ilink_tw)
 
 ## 03-3 Permutation test ----
 # Extra bonus: Permutation Test!
 # Let's say you took random combinations of X (dist_to_edge) and Y (windthrow_prct)
-# from the dataset and fit a linear model to them. Would it be just as good of
+# from the dataset and fit a (log)linear model to them. Would it be just as good of
 # a fit as our original model, m0?
 
 # First get the observed Pearson correlation coefficient
-r.obs <- cor(dat$dist_to_edge, 
+r.obs <- cor(dat$log_dist_to_edge, 
              dat$windthrow_prct) 
 
-# Grab the observed slope from the linear model
-slope.obs <- m0$coefficients[[2]]
+# Grab the observed slope from the log-linear model
+slope.obs <- m1$coefficients[[2]]
 
 
 # Setting the number of permutations (I started at 10,000 and kept 
@@ -506,9 +652,9 @@ perms <- matrix(ncol = 2, nrow = nsim)
 for(i in 1:nsim){
   
   # calculate the parameters from each permutation
-  r <- cor(dat$dist_to_edge, 
+  r <- cor(dat$log_dist_to_edge, 
            sample(dat$windthrow_prct))
-  slope <- lm(sample(dat$windthrow_prct) ~ dat$dist_to_edge)$coefficients[[2]]
+  slope <- lm(sample(dat$windthrow_prct) ~ dat$log_dist_to_edge)$coefficients[[2]]
   
   # store values of randomly generated slopes and r's
   perms[i, 1] <- r 
@@ -537,7 +683,7 @@ names(perms) <- c("r", "slope")
 
 # Plot the actual data
 dat |>
-  dplyr::mutate(dist_to_edge = exp(dist_to_edge)) |>
+  dplyr::mutate(dist_to_edge = exp(log_dist_to_edge)) |>
   ggplot(aes(x = dist_to_edge,
              y = windthrow_prct)) +
   geom_point(alpha = 0.4) +
@@ -574,6 +720,11 @@ ggplot(perms,
   theme_minimal() +
   theme(axis.title.x = element_text(size = 14),
         axis.title.y = element_text(size = 14))
+
+# So, these plots show that our fitted model m0 slope
+# and Pearson's resids are significantly different from
+# randomly rearranging our data's slope & resid. 
+# This indicates we have a true relationship. 
 
 # looking at the most extreme simulated r value (this should be greater
 # than the observed)
@@ -617,6 +768,22 @@ f |>
        y = "Windthrow %") +
   theme_minimal()
 
+## 04-1 Distance bins ~ max windthrow table ----
+
+# Reset bins
+f$dist_bins <- cut(f$dist_to_edge, 
+                   breaks = c(0, 5, 15, 30, 60, 10000),
+                   include.lowest = TRUE,
+                   ordered_result = TRUE)
+
+f |> 
+  dplyr::filter(!is.na(dist_bins)) |>
+  dplyr::group_by(dist_bins) |>
+  dplyr::summarise(max_windthrow = max(windthrow_prct, na.rm = TRUE),
+                   n = dplyr::n()) |>
+  knitr::kable()
+
+
 # 05 WINDTHROW SEVERITY x DIST TO EDGE --------------------------------
 
 # A variation of the analyses in section 3, only using a 
@@ -626,7 +793,7 @@ f |>
 # We remove the "At risk" category because it's not an
 # objective outcome, but rather a prediction
 # that the den will potentially experience windthrow 
-# impacts in the future.
+# impacts in the future, *based on distance to edge*.
 
 
 ## 05-1 Ordered logistic regression ----
@@ -641,11 +808,7 @@ f |>
 # to keep things nicely compartmentalized. (Note this will overwrite the
 # previous `dat` df.)
 
-dat <- f[,c("den_id", "windthrow_sev", "dist_to_edge")]
-dat <- unique(dat) # remove pseudo replicates with multiple repeat obs per den id
-dat <- dat[dat$windthrow_sev != "At risk", ] # remove 'At risk' category
-dat$windthrow_sev <- factor(dat$windthrow_sev, levels = c("Insignificant", "Moderate", "Severe")) # Remove 'At risk' from levels
-dat <- na.omit(dat)
+# `dat` is defined at the stop of this script in section 01-5
 
 # Fit the proportional odds logistic model
 p1 <- polr(windthrow_sev ~ dist_to_edge, data = dat)
@@ -654,10 +817,17 @@ p1 <- polr(windthrow_sev ~ dist_to_edge, data = dat)
 # "contiguous forest" is our baseline that everything is being
 # compared to. 
 
+# Calculate residuals to assess model fit
+# https://stats.stackexchange.com/questions/518535/how-to-get-residuals-from-an-ordinal-logit-probit-and-which-ones-to-get
+fit <- p1$fitted.values
+res <- sure::resids(p1) 
+hist(res) # beauuuuty
+
 # For some nice guidance on how to interpret these model outputs,
 # see: https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/
 summary(p1)
 sjPlot::plot_model(p1) # View odds ratios w confidence intervals (i.e., how strong is the effect?)
+
 
 # Test the assumption of proportional odds using Brant's test
 # This assumption basically means that the relationship between 
@@ -708,20 +878,23 @@ plot(Effect(focal.predictors = "dist_to_edge",
 
 plot(Effect(focal.predictors = "dist_to_edge",
             mod = p1,
-            xlevels = list(dist_to_edge = 0:max(dat$dist_to_edge))), # add these levels to smoothe out the curves of the graph. Otherwise you get straight lines
+            xlevels = list(dist_to_edge = 0:max(dat$dist_to_edge))), # add these levels to smooth out the curves of the graph. Otherwise you get straight lines
      style = "stacked",
      main = FALSE,
      xlab = "Distance to edge (m)",
      ylab = "Probability")
 
 # Plot it but without the outlier at 6000m 
-plot(Effect(focal.predictors = "dist_to_edge",
-            mod = p1,
-            xlevels = list(dist_to_edge = 0:1000)), # add these levels to smoothe out the curves of the graph. Otherwise you get straight lines
-     style = "stacked",
-     main = FALSE,
-     xlab = "Distance to edge (m)",
-     ylab = "Probability")
+# 2025-11-10 edit: this outlier has been removed from all analyses
+# to keep consistent sample size across all tests.
+# plot(Effect(focal.predictors = "dist_to_edge",
+#             mod = p1,
+#             xlevels = list(dist_to_edge = 0:1000)), # add these levels to smooth out the curves of the graph. Otherwise you get straight lines
+#      style = "stacked",
+#      main = FALSE,
+#      xlab = "Distance to edge (m)",
+#      ylab = "Probability")
+
 
 # 06 WINDTHROW SEVERITY x HARVEST STATUS ----------------------------------
 
@@ -735,12 +908,8 @@ plot(Effect(focal.predictors = "dist_to_edge",
 
 ## 06-1 Chi Square ----
 
-f |>
-  dplyr::select(den_id, windthrow_sev, harvested) |>
-  dplyr::filter(windthrow_sev != "At risk") |>
-  dplyr::distinct() |> # remove pseudo replicated yearly repeats
-  dplyr::select(-den_id) |> 
-  na.omit() |>
+# `dat` is defined at the stop of this script in section 01-5
+dat |>
   dplyr::group_by(windthrow_sev, harvested) |>
   dplyr::tally() |>
   tidyr::pivot_wider(names_from = windthrow_sev,
@@ -751,12 +920,7 @@ f |>
   as.table() |>
   gplots::balloonplot(main = "Windthrow Severity x Harvest Status")
 
-chisq <- f |>
-  dplyr::select(den_id, windthrow_sev, harvested) |>
-  dplyr::filter(windthrow_sev != "At risk") |>
-  dplyr::distinct() |> # remove pseudo replicated yearly repeats
-  dplyr::select(-den_id) |>
-  na.omit() |>
+chisq <- dat |>
   dplyr::group_by(windthrow_sev, harvested) |>
   dplyr::tally() |>
   tidyr::pivot_wider(names_from = windthrow_sev,
@@ -764,11 +928,23 @@ chisq <- f |>
   tibble::column_to_rownames(var = "harvested") |>
   dplyr::mutate_all(~replace(., is.na(.), 0)) |>
   as.matrix() |>
-  chisq.test()
+  chisq.test() 
+
+# Add `simulate.p.value = TRUE` to chisq.test()
+# to handle smaller groups; ie Fisher exact test, if you get errors 
+# calculating exact p-value.
+# NOTE IF USING FISHER TEST THE CHI SQ AND CRAMER'S V VALUES ARE IRRELEVANT. 
+# This uses a monte-carlo procedure to generate p-values. This means
+# the X2 stat isn't actually following a X2 distribution with df == (r-1)(c-1), 
+# but rather a M-C null distribution.
 
 chisq
 chisq$observed
 round(chisq$expected)
+
+round(chisq$observed / 227, 2)
+round(chisq$expected / 227, 2)
+
 corrplot::corrplot(chisq$residuals, is.corr = FALSE)
 
 ## 06-2 Cramer's V ----
@@ -791,16 +967,13 @@ cramers_v
 
 # generating the contingency table
 cont.table <- 
-  f |>
+  dat |>
   dplyr::select(den_id, windthrow_sev, harvested) |>
-  dplyr::filter(windthrow_sev != "At risk") |>
-  dplyr::distinct() |> # remove pseudo replicated yearly repeats
   dplyr::select(-den_id) |> 
   droplevels() |>
   na.omit() |>
   table() |>
   t()
-# <- table(f$harvested, f$windthrow_sev)
 ncol <- ncol(cont.table)
 nrow <- nrow(cont.table)
 num.entries <- nrow*ncol
@@ -808,12 +981,12 @@ num.entries <- nrow*ncol
 # setting the bonferroni adjusted confidence level
 alpha <- 1 - (0.05 / num.entries)
 
-# looping through each categoty and calculating the confidence interval
+# looping through each category and calculating the confidence interval
 for(i in 1:num.entries){
   col.i <- (i-1) %% ncol +1
   row.i <- (i-1) %/% ncol +1
   
-  # creating a new contingency table for 1 ourcome at a time. It will have 
+  # creating a new contingency table for 1 outcome at a time. It will have 
   # the number of times that outcome did vs didn't occur for either harvested
   # or not harvested.
   new.cont.table <- matrix(NA, nrow = 1, ncol = 2)
@@ -823,7 +996,16 @@ for(i in 1:num.entries){
   
   # Putting the new values into the contingency table.
   new.cont.table[1] <- cont.table[row.i,col.i]
-  new.cont.table[2] <- sum(cont.table[row.i,-col.i])
+  
+  # PREVIOUSLY: Gavin was calculating the confidence intervals
+  # for each harvest status separately (Harvested vs Not harvested),
+  # such that the odds added up too 100% for each harvest status 
+  # (and thus added up to 200% total for the whole table).
+  #new.cont.table[2] <- sum(cont.table[row.i,-col.i])
+  
+  # NOW: calculate the odds for each category relative to ANY AND ALL
+  # other categories in the table. 
+  new.cont.table[2] <- sum(cont.table) - cont.table[row.i, col.i]
   
   # calculating the confidence interval
   result <- prop.test(new.cont.table, conf.level = alpha, correct = FALSE)
@@ -839,25 +1021,46 @@ for(i in 1:num.entries){
 
 # Create a mosaic plot with color that shows the distribution of the windthrow
 # categories vs harvest status
-f |> 
-  dplyr::select(den_id, windthrow_sev, harvested) |>
-  dplyr::filter(windthrow_sev != "At risk") |>
-  dplyr::distinct() |> # remove pseudo replicated yearly repeats
-  dplyr::select(-den_id) |> 
-  droplevels() |>
-  na.omit() |>
+# OBSERVED
+m1 <- 
+  dat |>
   ggplot() +
   geom_mosaic(aes(x = product(harvested), 
                   fill = windthrow_sev), 
               alpha = 1) + 
-  scale_fill_manual(values = c("forestgreen", "gold", "orange")) +
-  labs(y = "Windthrow Severity", 
+  scale_fill_okabeito(black_position = "last") +
+  #scale_fill_manual(values = c("forestgreen", "gold", "orange")) +
+  labs(title = "Observed", 
        x = "Harvest Status") + 
   theme_mosaic() +
   theme(legend.position = "none", 
-        axis.title.x = element_text(size = 14, vjust = -0.2), 
-        axis.title.y = element_text(size = 14))
-  
+        axis.title = element_blank()
+        #axis.title.x = element_text(size = 14, vjust = -0.2), 
+        #axis.title.y = element_text(size = 14)
+        )
+
+# EXPECTED
+m2 <- 
+  round(chisq$expected) |> 
+  as.data.frame() |> 
+  tibble::rownames_to_column() |> 
+  tidyr::pivot_longer(cols = c(2:4)) |> 
+  tidyr::uncount(value) |>
+  ggplot() +
+  geom_mosaic(aes(x = product(rowname), 
+                  fill = name),
+              alpha = 0.8) +
+  scale_fill_okabeito(black_position = "last") +
+  labs(title = "Expected",
+       x = "Harvest Status") +
+  theme_mosaic() +
+  theme(legend.position = "none",
+        axis.title = element_blank()
+        #axis.title.x = element_text(size = 14, vjust = -0.2), 
+        #axis.title.y = element_text(size = 14)
+        )
+
+ggpubr::ggarrange(m1, m2, nrow = 1, labels = c("A", "B"))
 
 # Clean up
 rm(chisq, result, alpha, col.i, cont.table, cramers_v, i,
@@ -942,7 +1145,8 @@ f |>
   geom_mosaic(aes(x = product(patch), 
                   fill = windthrow_sev), 
               alpha = 1) + 
-  scale_fill_manual(values = c("forestgreen", "gold", "orange")) +
+  scale_fill_okabeito(black_position = "last") +
+  #scale_fill_manual(values = c("forestgreen", "gold", "orange")) +
   labs(y = "Windthrow Severity", 
        x = "Patch size (category)") + 
   theme_mosaic() +
@@ -1031,9 +1235,6 @@ plot(Effect(focal.predictors = "patch",
      main = FALSE,
      xlab = "Patch size (categories)",
      ylab = "Probability")
-
-
-
 
 
 

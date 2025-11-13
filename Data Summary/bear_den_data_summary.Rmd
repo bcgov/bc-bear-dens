@@ -112,6 +112,9 @@ names(dens)[grep("Y", names(dens))] <- "latitude"
 
 # Assign either VI or HG to data, to examine by island
 dens$region <- ifelse(dens$latitude > 800000, "HG", "VI")
+
+# Drop any dens not present in the field visits
+dens <- dens[dens$den_id %in% f$den_id, ]
 ```
 
 ```{r f prep, include = FALSE}
@@ -334,7 +337,7 @@ f |>
   dplyr::mutate(year = lubridate::year(date_inspected)) |>
   ggplot(aes(x = year)) +
   geom_bar() +
-  scale_x_continuous(breaks = 2014:2024) +
+  scale_x_continuous(breaks = 2014:2025) +
   labs(x = "Year",
        y = "N field visits",
        title = "Number of field visits per year") +
@@ -351,8 +354,8 @@ f |>
   dplyr::filter(grepl("Yes", monitored_by_camera)) |>
   ggplot(aes(x = year)) +
   geom_bar() +
-  scale_x_continuous(limits = c(2014,2024.5), 
-                     breaks = 2014:2024) +
+  scale_x_continuous(limits = c(2014,2025.5), 
+                     breaks = 2014:2025) +
   labs(x = "Year",
        y = "N deployed cameras",
        title = "Number of deployed cameras per year") +
@@ -2482,11 +2485,11 @@ model0c <- glm(den_status_binary ~ dist_gt40 + year, data = dat, family = binomi
 model0d <- glm(den_status_binary ~ age + year, data = dat, family = binomial)
 model0e <- glm(den_status_binary ~ dist_from_edge + age + year, data = dat, family = binomial)
 model0f1 <- glm(den_status_binary ~ dist_from_edge * age + year, data = dat, family = binomial)
-model0f2 <- glm(den_status_binary ~ dist_from_edge * age * year, data = dat, family = binomial)
+#model0f2 <- glm(den_status_binary ~ dist_from_edge * age * year, data = dat, family = binomial)
 #model0f3 <- glm(den_status_binary ~ dist_from_edge * forestry_treatment_desc + year, data = dat, family = binomial)
 model0g1 <- glm(den_status_binary ~ dist_road + age + year, data = dat, family = binomial)
 model0g2 <- glm(den_status_binary ~ dist_road * age + year, data = dat, family = binomial)
-model0g3 <- glm(den_status_binary ~ dist_road * age * year, data = dat, family = binomial)
+#model0g3 <- glm(den_status_binary ~ dist_road * age * year, data = dat, family = binomial)
 #model0h <- glm(den_status_binary ~ dist_road * forestry_treatment_desc + year, data = dat, family = binomial)
 model0i <- glm(den_status_binary ~ gt_8 + age + year, data = dat, family = binomial)
 model0j <- glm(den_status_binary ~ lt_3 + age + year, data = dat, family = binomial)
@@ -2494,15 +2497,32 @@ model0k <- glm(den_status_binary ~ road_density_m2 + age + year, data = dat, fam
 model0l <- glm(den_status_binary ~ gt_8 + dist_lt40 + age + year, data = dat, family = binomial)
 model0m <- glm(den_status_binary ~ gt_8 + v_prop_forest_60m + age + year, data = dat, family = binomial)
 model0n <- glm(den_status_binary ~ road_density_m2 + dist_road + age + year, data = dat, family = binomial)
-model0o <- glm(den_status_binary ~ dist_lt40 * region + age + year, data = dat, family = binomial)
 
-model1a <- glm(den_status_binary ~ year + region + v_prop_forest_60m + dist_from_edge * age + road_density_m2, data = dat, family = binomial)
-model1b <- glm(den_status_binary ~ year + region + v_prop_forest_60m + dist_road * age, data = dat, family = binomial)
+model1a <- glm(den_status_binary ~ year + v_prop_forest_60m + dist_from_edge * age + road_density_m2, data = dat, family = binomial)
+model1b <- glm(den_status_binary ~ year + v_prop_forest_60m + dist_road * age, data = dat, family = binomial)
 
 models_names <- ls()[grep("model0|model1", ls())]
 models_list <- lapply(models_names, get)
 names(models_list) <- models_names
 bbmle::AICtab(models_list, weights = TRUE)
+
+```
+
+```{r, include=FALSE}
+# Chopping up into smaller tables for publication
+base_models <- models_list[names(models_list) %in% c("model00", "model0r")]
+stand_models <- models_list[names(models_list) %in% c("model0a", "model0b", "model0c",
+                                                      "model0d", "model0e", "model0f1",
+                                                      "model0g1", "model0g2",
+                                                      "model1a", "model1b")]
+landscape_models <- models_list[names(models_list) %in% c("model0i", "model0j", "model0k",
+                                                          "model0l", "model0m", "model0n")]
+#full_models <- models_list[names(models_list) %in% c("model1a", "model1b")]
+
+
+bbmle::AICtab(base_models, weights = TRUE, base = TRUE)
+bbmle::AICtab(stand_models, weights = TRUE, base = TRUE)
+bbmle::AICtab(landscape_models, weights = TRUE, base = TRUE)
 
 ```
 

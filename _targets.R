@@ -227,6 +227,7 @@ list(
   # verifications!! Those were already run on year (X-1).
   tar_target(f_analysis, wrangle_bears(f, forestry_verifications_full)),
   #### Extract DEM attributes ####
+  # TODO: only run extract_dem if the geometry changes
   tar_target(dens_dem, extract_dem(dens, cded_path = hg_vi_cded)),
   tar_target(pseudo_dens_dem, extract_dem(pseudo_dens, cded_path = hg_vi_cded)),
   #### Extract VRI age class ####
