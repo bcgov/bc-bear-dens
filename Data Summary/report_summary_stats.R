@@ -82,7 +82,8 @@ f_analysis |>
 f_analysis |> 
   sf::st_drop_geometry() |>
   dplyr::ungroup() |>
-  dplyr::select(nearest_tree_m, v_prop_forest_60m, 
+  dplyr::select(year,
+                nearest_tree_m, v_prop_forest_60m, 
                 v_dist_lt40, v_dist_gt40, dist_from_edge,
                 v_dist_road, windthrow_prct, 
                 lt_3, gt_8, road_density_m2) |>

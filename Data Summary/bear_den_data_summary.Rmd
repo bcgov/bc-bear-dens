@@ -2417,10 +2417,10 @@ By far and away, our base model `model00` is consistently one of the top models,
 
 ```{r den status models}
 # The modeling data
-dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active") & f_analysis$den_status %in% for_sure_dens, ]
+dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active"), ]
 
 # Confirm that a strict vs lenient "for sure dens" doesn't change the results!
-#dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active"), ]
+#dat <- f_analysis[f_analysis$den_status_binary %in% c("Active", "Not Active") & f_analysis$den_status %in% for_sure_dens, ]
 
 # Confirm that using the regular `f` dataset (the one that DOESN'T match to 
 # previous years' forestry) produces results that don't make sense
@@ -2463,13 +2463,9 @@ dat <- dat[dat$dist_road <= 2000, ]
 # Convert den_status_binary to 0 or 1
 dat$den_status_binary <- ifelse(dat$den_status_binary == "Active", 1, 0)
 
-# Let's drop "on_edge" bc it's perfectly == 0 in distance.
-#dat <- dat[which(dat$age != "on_edge"),]
-# JK - in this case, just categorize it as 'within young' because
-# the kitchen sink model was the best fit, and don't wanna show
-# NAs in our results summary table.
-dat[["age"]][dat$age == "on_edge"] <- "within_young"
+# Convert categorical vars to factor
 dat$age <- factor(dat$age, levels = c("within_young", "within_old"))
+dat$region <- factor(dat$region, levels = c("VI", "HG"))
 
 # Remove any lingering models in the environment
 rm(list=ls(pattern = "model0|model1"))
@@ -2479,33 +2475,32 @@ rm(list=ls(pattern = "model0|model1"))
 model00 <- glm(den_status_binary ~ year, data = dat, family = binomial)
 model0r <- glm(den_status_binary ~ region + year, data = dat, family = binomial)
 #model0p <- glm(den_status_binary ~ forestry_treatment_desc + year, data = dat, family = binomial)
-model0a <- glm(den_status_binary ~ v_prop_forest_60m + age + year, data = dat, family = binomial)
-model0b <- glm(den_status_binary ~ dist_lt40 + year, data = dat, family = binomial) # can't have age in this!!!
-model0c <- glm(den_status_binary ~ dist_gt40 + year, data = dat, family = binomial) # can't have age in this!!
-model0d <- glm(den_status_binary ~ age + year, data = dat, family = binomial)
-model0e <- glm(den_status_binary ~ dist_from_edge + age + year, data = dat, family = binomial)
-model0f1 <- glm(den_status_binary ~ dist_from_edge * age + year, data = dat, family = binomial)
+model0a <- glm(den_status_binary ~ v_prop_forest_60m + age + year + region, data = dat, family = binomial)
+model0b <- glm(den_status_binary ~ dist_lt40 + year + region, data = dat, family = binomial) # can't have age in this!!!
+model0c <- glm(den_status_binary ~ dist_gt40 + year + region, data = dat, family = binomial) # can't have age in this!!
+model0d <- glm(den_status_binary ~ age + year + region, data = dat, family = binomial)
+model0e <- glm(den_status_binary ~ dist_from_edge + age + year + region, data = dat, family = binomial)
+model0f1 <- glm(den_status_binary ~ dist_from_edge * age + year + region, data = dat, family = binomial)
 #model0f2 <- glm(den_status_binary ~ dist_from_edge * age * year, data = dat, family = binomial)
 #model0f3 <- glm(den_status_binary ~ dist_from_edge * forestry_treatment_desc + year, data = dat, family = binomial)
-model0g1 <- glm(den_status_binary ~ dist_road + age + year, data = dat, family = binomial)
-model0g2 <- glm(den_status_binary ~ dist_road * age + year, data = dat, family = binomial)
+model0g1 <- glm(den_status_binary ~ dist_road + age + year + region, data = dat, family = binomial)
+model0g2 <- glm(den_status_binary ~ dist_road * age + year + region, data = dat, family = binomial)
 #model0g3 <- glm(den_status_binary ~ dist_road * age * year, data = dat, family = binomial)
 #model0h <- glm(den_status_binary ~ dist_road * forestry_treatment_desc + year, data = dat, family = binomial)
-model0i <- glm(den_status_binary ~ gt_8 + age + year, data = dat, family = binomial)
-model0j <- glm(den_status_binary ~ lt_3 + age + year, data = dat, family = binomial)
-model0k <- glm(den_status_binary ~ road_density_m2 + age + year, data = dat, family = binomial)
-model0l <- glm(den_status_binary ~ gt_8 + dist_lt40 + age + year, data = dat, family = binomial)
-model0m <- glm(den_status_binary ~ gt_8 + v_prop_forest_60m + age + year, data = dat, family = binomial)
-model0n <- glm(den_status_binary ~ road_density_m2 + dist_road + age + year, data = dat, family = binomial)
+model0i <- glm(den_status_binary ~ gt_8 + age + year + region, data = dat, family = binomial)
+model0j <- glm(den_status_binary ~ lt_3 + age + year + region, data = dat, family = binomial)
+model0k <- glm(den_status_binary ~ road_density_m2 + age + year + region, data = dat, family = binomial)
+model0l <- glm(den_status_binary ~ gt_8 + dist_lt40 + age + year + region, data = dat, family = binomial)
+model0m <- glm(den_status_binary ~ gt_8 + v_prop_forest_60m + age + year + region, data = dat, family = binomial)
+model0n <- glm(den_status_binary ~ road_density_m2 + dist_road * age + year + region, data = dat, family = binomial)
 
-model1a <- glm(den_status_binary ~ year + v_prop_forest_60m + dist_from_edge * age + road_density_m2, data = dat, family = binomial)
-model1b <- glm(den_status_binary ~ year + v_prop_forest_60m + dist_road * age, data = dat, family = binomial)
+model1a <- glm(den_status_binary ~ year + region + v_prop_forest_60m + dist_from_edge * age + road_density_m2, data = dat, family = binomial)
+model1b <- glm(den_status_binary ~ year + region + v_prop_forest_60m + dist_road * age, data = dat, family = binomial)
 
 models_names <- ls()[grep("model0|model1", ls())]
 models_list <- lapply(models_names, get)
 names(models_list) <- models_names
-bbmle::AICtab(models_list, weights = TRUE)
-
+bbmle::AICtab(models_list, weights = TRUE, base = TRUE)
 ```
 
 ```{r, include=FALSE}
@@ -2597,6 +2592,16 @@ summary(get(top_model))
 
 ---
 
+## Question 1
+
+Same model, but with continuous predictors rescaled and centered on their means to make coefficient comparison easier to interpret. 
+
+```{r top model summary rescaled}
+jtools::summ(get(top_model), scale = TRUE, center = TRUE, confint = TRUE)
+```
+
+---
+
 ## Question 1: Top Model Summary
 
 As distance from road increases, the chances of being "Active" also go up - even after controlling for `year`.
@@ -2613,6 +2618,17 @@ It gets complicated when we look at the interaction with age. There's more to te
 
 ```{r den status v dist_road x age pred plot, fig.height = 5}
 sjPlot::plot_model(get(top_model), type = "pred", terms = c("dist_road[all]", "age"))
+```
+
+```{r den status v dist_road x age pred for publication, fig.height = 5, include = FALSE}
+sjPlot::plot_model(get(top_model), type = "pred", terms = c("dist_road[all]", "age")) + 
+  scale_color_manual(values = c("cadetblue", "coral"), labels = c("Immature", "Mature")) +
+  scale_fill_manual(values = c("cadetblue", "coral"), labels = c("Immature", "Mature")) +
+  labs(x = "Distance to Nearest Road (m)",
+       y = "Predicted den activity probability",
+       col = "AGE") +
+  theme_minimal() +
+  theme(plot.title = element_blank())
 ```
 
 ---
